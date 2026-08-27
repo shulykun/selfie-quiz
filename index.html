@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Селфи-квиз</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#0b0b12; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#fff; }
+  #cam {
+    position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
+    transform:scaleX(-1); z-index:0;
+  }
+  #fx { position:fixed; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; }
+  #ui { position:fixed; inset:0; z-index:2; display:flex; flex-direction:column; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+
+  /* затемнение для читаемости */
+  #ui::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%);
+  }
+
+  #top { position:relative; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  #top .logo { font-weight:800; font-size:18px; letter-spacing:.5px; text-shadow:0 2px 8px rgba(0,0,0,.7); }
+  #top .logo span { color:#ffd93d; }
+  #progressWrap { position:relative; width:100%; height:6px; background:rgba(255,255,255,.2); border-radius:99px; overflow:hidden; margin-bottom:12px; }
+  #progress { height:100%; width:0%; background:linear-gradient(90deg,#ffd93d,#ff6b6b); border-radius:99px; transition:width .4s ease; }
+
+  #score { position:relative; text-align:center; font-size:15px; opacity:.9; text-shadow:0 2px 6px rgba(0,0,0,.7); }
+  #score b { color:#ffd93d; }
+
+  #card {
+    position:relative; margin-top:auto;
+    background:rgba(15,15,25,.72); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:14px 12px;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  #qNum { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#ffd93d; margin-bottom:5px; font-weight:700; }
+  #question { font-size:17px; line-height:1.3; font-weight:700; margin-bottom:11px; }
+  .answers { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .ans {
+    border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08);
+    color:#fff; border-radius:11px; padding:9px 8px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:transform .08s ease, background .15s ease; min-height:42px;
+  }
+  .ans:active { transform:scale(.96); }
+  .ans.correct { background:#2ecc71; border-color:#2ecc71; }
+  .ans.wrong { background:#e74c3c; border-color:#e74c3c; }
+  .ans:disabled { opacity:.65; cursor:default; }
+
+  /* эффект-оверлеи */
+  .flash { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:0; }
+  #winOverlay {
+    background:linear-gradient(160deg, rgba(255,217,61,.35), rgba(255,107,107,.45));
+    display:flex; align-items:center; justify-content:center; z-index:3;
+    backdrop-filter:grayscale(1) contrast(1.15) sepia(.35) saturate(1.6);
+    transition:opacity .25s ease;
+  }
+  #winOverlay .big { font-size:44px; font-weight:900; text-shadow:0 4px 20px rgba(0,0,0,.6); text-align:center; line-height:1.2; }
+  #winOverlay .sub { font-size:16px; opacity:.92; font-weight:600; margin-top:6px; }
+  #loseOverlay {
+    background:linear-gradient(180deg, rgba(30,30,45,.25), rgba(10,10,20,.55));
+    display:flex; align-items:center; justify-content:center; z-index:3;
+    transition:opacity .3s ease;
+  }
+  #loseOverlay .big { font-size:40px; font-weight:900; text-shadow:0 4px 20px rgba(0,0,0,.7); text-align:center; line-height:1.2; }
+  #loseOverlay .sub { font-size:16px; opacity:.9; font-weight:600; margin-top:6px; }
+  .show { opacity:1 !important; }
+
+  #startScreen, #endScreen {
+    position:fixed; inset:0; z-index:5; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:rgba(8,8,16,.55); backdrop-filter:blur(6px);
+  }
+  .hidden { display:none !important; }
+  .btn {
+    margin-top:18px; background:linear-gradient(90deg,#ffd93d,#ff9a3d); color:#1a1400;
+    border:none; border-radius:99px; padding:16px 42px; font-size:19px; font-weight:800;
+    cursor:pointer; box-shadow:0 8px 30px rgba(255,180,60,.35);
+  }
+  .btn.next {
+    width:100%; margin-top:10px; padding:11px 16px; font-size:15px;
+    background:linear-gradient(90deg,#ffd93d,#ff9a3d); box-shadow:0 6px 22px rgba(255,180,60,.3);
+  }
+  .btn.next:disabled { opacity:.5; }
+  .endBtns { display:flex; gap:10px; margin-top:18px; }
+  .endBtns .btn { margin-top:0; }
+  .btn.secondary {
+    background:rgba(255,255,255,.12); color:#fff; box-shadow:none;
+    border:1px solid rgba(255,255,255,.28);
+  }
+  #roundStrip {
+    display:flex; gap:8px; overflow-x:auto; margin:14px 0 4px;
+    max-width:100%; padding:4px 0; -webkit-overflow-scrolling:touch;
+  }
+  #roundStrip.hidden { display:none; }
+  #roundStrip img {
+    height:118px; width:auto; border-radius:10px;
+    border:2px solid rgba(255,255,255,.25); flex-shrink:0; cursor:pointer;
+  }
+  .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
+  .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
+  #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  #aiStatus {
+    position:fixed; bottom:10px; right:12px; z-index:9; font-size:11px; opacity:.8;
+    background:rgba(0,0,0,.45); border-radius:99px; padding:4px 10px; color:#fff;
+    pointer-events:none; display:none; font-family:ui-monospace,monospace;
+  }
+  #aiStatus.show { display:block; }
+  #segError {
+    position:fixed; top:max(14px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    z-index:8; background:rgba(180,40,40,.92); color:#fff; border-radius:99px;
+    padding:10px 18px; font-size:14px; font-weight:700; text-align:center;
+    box-shadow:0 6px 24px rgba(0,0,0,.4); display:none; max-width:90%;
+  }
+  #segError.show { display:block; }
+</style>
+</head>
+<body>
+
+<video id="cam" playsinline muted autoplay></video>
+<canvas id="fx"></canvas>
+
+<div id="ui" class="hidden">
+  <div id="top">
+    <div class="logo">📸 Селфи-квиз <span>• Бой с кринжем</span></div>
+    <div id="score">Счёт: <b>0</b>/6</div>
+  </div>
+  <div id="progressWrap"><div id="progress"></div></div>
+  <div id="card">
+    <div id="qNum">Вопрос 1 из 6</div>
+    <div id="question">...</div>
+    <div class="answers" id="answers"></div>
+    <button id="nextBtn" class="btn next hidden">Дальше →</button>
+  </div>
+</div>
+
+<div id="winOverlay" class="flash"><div><div class="big">🏆 ВЫИГРЫШ!</div><div class="sub">Стоп-кадр. Ты — звезда.</div></div></div>
+<div id="loseOverlay" class="flash"><div><div class="big">🌧 ПОРАЖЕНИЕ</div><div class="sub">Дождь идёт по тебе…</div></div></div>
+
+<div id="startScreen">
+  <div class="h1">📸 Селфи-квиз</div>
+  <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — стоп-кадр с заливкой 🎉<br>Мимо — дождь 🌧</div>
+  <button class="btn" id="startBtn">▶ Начать игру</button>
+</div>
+
+<div id="endScreen" class="hidden">
+  <div class="h1" id="endTitle">🎉</div>
+  <div class="p" id="endText"></div>
+  <div id="roundStrip" class="hidden"></div>
+  <div class="endBtns">
+    <button class="btn" id="againBtn">🔄 Ещё раз</button>
+    <button class="btn secondary" id="shareBtn">📤 Поделиться</button>
+  </div>
+</div>
+
+<button id="camOff" class="hidden">🚫 Камера</button>
+<div id="segError"></div>
+<div id="aiStatus"></div>
+
+<script>
+(() => {
+  const QUESTIONS = [
+    { q: 'Сколько будет 7 × 8?', a: ['54', '56', '64', '48'], c: 1 },
+    { q: 'Какой город — столица Австралии?', a: ['Сидней', 'Мельбурн', 'Канберра', 'Перт'], c: 2 },
+    { q: 'Кто написал «Войну и мир»?', a: ['Достоевский', 'Толстой', 'Чехов', 'Пушкин'], c: 1 },
+    { q: 'Сколько планет в Солнечной системе?', a: ['7', '8', '9', '10'], c: 1 },
+    { q: 'Какой язык программирования назван в честь змеи?', a: ['Java', 'C++', 'Python', 'Ruby'], c: 2 },
+    { q: 'Сколько минут в двух часах?', a: ['100', '110', '120', '90'], c: 2 },
+  ];
+  const WIN_SCORE = 4;
+
+  const video = document.getElementById('cam');
+  const canvas = document.getElementById('fx');
+  const ctx = canvas.getContext('2d');
+  const ui = document.getElementById('ui');
+  const startScreen = document.getElementById('startScreen');
+  const endScreen = document.getElementById('endScreen');
+  const winOverlay = document.getElementById('winOverlay');
+  const loseOverlay = document.getElementById('loseOverlay');
+  const nextBtn = document.getElementById('nextBtn');
+  const camOffBtn = document.getElementById('camOff');
+  const shareBtn = document.getElementById('shareBtn');
+  const aiStatus = document.getElementById('aiStatus');
+  const segError = document.getElementById('segError');
+  window.__quizDebug = { segState: 'idle', segError: null, logs: [] };
+  const dbgLog = (ev, extra) => { try { window.__quizDebug.logs.push({ t: Date.now(), ev, ...extra }); } catch (e) {} };
+
+  function setAiStatus(t, show = true) {
+    aiStatus.textContent = t;
+    aiStatus.classList.toggle('show', show);
+  }
+
+  function showSegError(reason) {
+    segError.textContent = reason === 'timeout'
+      ? '⚠️ Не удалось обработать фото (слишком долго)'
+      : '⚠️ Не удалось обработать фото';
+    segError.classList.add('show');
+    dbgLog('seg-error-shown', { reason });
+  }
+  function hideSegError() { segError.classList.remove('show'); }
+
+  let stream = null;
+  let score = 0;
+  let qIndex = 0;
+  let locked = false;
+  let raf = null;
+  let rain = [];
+  let confetti = [];
+  let sparkles = [];
+  let rays = null;      // лучи за головой (японский стиль)
+  let popTexts = [];    // слэм-тексты («СУПЕР!», «ОГО!»)
+  let flash = null;     // вспышка экрана
+  let roundShots = [];   // лента стоп-кадров раунда
+  let effect = null; // 'rain' | 'freeze'
+  let snapshot = null; // замороженный кадр (offscreen canvas)
+  let segmenter = null; // MediaPipe Tasks ImageSegmenter
+  let segMask = null;   // маска человека (canvas)
+  let personLayer = null; // стоп-кадр человека, вырезанный маской
+  let bgLayer = null;   // яркий игровой фон (случайный)
+  let glowLayer = null; // яркий контур по маске
+
+  function resize() {
+    canvas.width = window.innerWidth * devicePixelRatio;
+    canvas.height = window.innerHeight * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      camOffBtn.classList.remove('hidden');
+      return true;
+    } catch (e) {
+      alert('Не удалось включить камеру: ' + e.message);
+      return false;
+    }
+  }
+
+  function stopCamera() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.srcObject = null;
+    camOffBtn.classList.add('hidden');
+  }
+
+  function beep(freq, dur, type = 'sine', vol = 0.15) {
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + dur);
+    } catch (e) {}
+  }
+
+  // ---------- Эффекты ----------
+  function captureSnapshot() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const s = document.createElement('canvas');
+    s.width = w; s.height = h;
+    const c = s.getContext('2d');
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      // зеркалим, как в #cam
+      c.translate(w, 0); c.scale(-1, 1);
+      c.drawImage(video, 0, 0, w, h);
+    } else {
+      c.fillStyle = '#1a1a2e';
+      c.fillRect(0, 0, w, h);
+    }
+    return s;
+  }
+
+  async function initSelfieSeg() {
+    try {
+      window.__quizDebug.segState = 'loading';
+      setAiStatus('AI: загрузка модели…');
+      const src = await import('/quiz/vendor/tasks/vision_bundle.mjs');
+      const vision = await src.FilesetResolver.forVisionTasks('/quiz/vendor/tasks/wasm/');
+      segmenter = await src.ImageSegmenter.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: '/quiz/vendor/tasks/selfie_segmenter.tflite' },
+        runningMode: 'IMAGE',
+        outputCategoryMask: true
+      });
+      window.__quizDebug.segState = 'ready';
+      setAiStatus('AI: готово ✓');
+    } catch (e) {
+      window.__quizDebug.segState = 'init-error';
+      window.__quizDebug.segError = String(e);
+      setAiStatus('AI: недоступно');
+    }
+  }
+
+  // один раз гоняем кадр через MediaPipe → маска человека (canvas)
+  // без фолбэка: ждём до 20с, иначе { mask: null, error }
+  function makeMask() {
+    return new Promise(resolve => {
+      if (!video.videoWidth) return resolve(null);
+      const t0 = Date.now();
+      let done = false;
+      let deadline = null;
+      let poll = null;
+      const finish = (mask, error) => {
+        if (done) return;
+        done = true;
+        clearTimeout(deadline);
+        clearInterval(poll);
+        resolve({ mask, error });
+      };
+      // общий дедлайн: модель + сегментация вместе ≤ 20с
+      deadline = setTimeout(() => {
+        dbgLog('mask-deadline', { ms: Date.now() - t0 });
+        finish(null, 'timeout');
+      }, 20000);
+      const runSeg = () => {
+        const c = document.createElement('canvas');
+        c.width = video.videoWidth; c.height = video.videoHeight;
+        c.getContext('2d').drawImage(video, 0, 0);
+        let p = null;
+        try { p = segmenter.segment(c); } catch (e) {
+          window.__quizDebug.segError = String(e);
+          dbgLog('mask-call-error', { err: String(e) });
+          return finish(null, 'error');
+        }
+        // segment() в разных сборках возвращает Promise или готовый результат
+        const unwrap = r => (r && typeof r.then === 'function' ? r.then(x => x) : Promise.resolve(r));
+        unwrap(p).then(res => {
+          const cm = res && res.categoryMask;
+          if (!cm) { dbgLog('mask-result', { has: false, elapsed: Date.now() - t0 }); return finish(null, 'error'); }
+          const arr = cm.getAsUint8Array();
+          // Uint8Array → canvas RGBA
+          // ⚠️ ВАЖНО: selfie_segmenter отдаёт 255=ФОН, 0=человек → инвертируем, иначе вырежется фон
+          const m = document.createElement('canvas');
+          m.width = cm.width; m.height = cm.height;
+          const mc = m.getContext('2d');
+          const imgData = mc.createImageData(cm.width, cm.height);
+          const px = imgData.data;
+          for (let i = 0; i < arr.length; i++) {
+            const a = 255 - arr[i]; // человек непрозрачен, фон прозрачен
+            px[i * 4] = 255; px[i * 4 + 1] = 255; px[i * 4 + 2] = 255; px[i * 4 + 3] = a;
+          }
+          mc.putImageData(imgData, 0, 0);
+          dbgLog('mask-result', { has: true, elapsed: Date.now() - t0 });
+          finish(m, null);
+        }).catch(e => {
+          window.__quizDebug.segError = String(e);
+          dbgLog('mask-send-error', { err: String(e) });
+          finish(null, 'error');
+        });
+      };
+      if (segmenter) { runSeg(); return; }
+      const st = window.__quizDebug.segState;
+      if (st === 'init-error' || st === 'idle') {
+        dbgLog('mask-no-model', { segState: st });
+        return finish(null, 'model-unavailable');
+      }
+      // модель ещё грузится — ждём до дедлайна
+      poll = setInterval(() => {
+        if (segmenter) { clearInterval(poll); poll = null; runSeg(); }
+      }, 200);
+    });
+  }
+
+  function applyMaskResult(res) {
+    if (!res) return;
+    if (res.mask && (effect === 'freeze' || effect === 'rain')) {
+      segMask = res.mask;
+      // победа — золотой контур, поражение — голубой
+      buildLayers(effect === 'freeze' ? '#ffd93d' : '#6ea8ff');
+      hideSegError();
+    } else if (res.error) {
+      showSegError(res.error);
+    }
+  }
+
+  const BG_KINDS = ['neon', 'fire', 'space', 'cyber', 'sunset', 'rainbow', 'ocean', 'grid'];
+
+  // яркие игровые фоны
+  function drawBg(ctx, w, h, kind) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    switch (kind) {
+      case 'neon':
+        g.addColorStop(0, '#2b1055'); g.addColorStop(0.5, '#7597de'); g.addColorStop(1, '#f3a183');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); break;
+      case 'fire':
+        g.addColorStop(0, '#ffe600'); g.addColorStop(0.5, '#ff6a00'); g.addColorStop(1, '#ff2d00');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); break;
+      case 'space': {
+        ctx.fillStyle = '#070b1e'; ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 160; i++) {
+          const x = Math.random() * w, y = Math.random() * h, s = Math.random() * 2.2 + 0.4;
+          ctx.fillStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.6})`;
+          ctx.fillRect(x, y, s, s);
+        }
+        const neb = (x, y, rad, col) => {
+          const ng = ctx.createRadialGradient(x, y, 0, x, y, rad);
+          ng.addColorStop(0, col); ng.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = ng; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+        };
+        neb(w * 0.25, h * 0.3, 130, 'rgba(255,45,120,0.45)');
+        neb(w * 0.75, h * 0.6, 160, 'rgba(64,120,255,0.4)');
+        break;
+      }
+      case 'cyber':
+        g.addColorStop(0, '#00ff9d'); g.addColorStop(1, '#0066ff');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); break;
+      case 'sunset':
+        g.addColorStop(0, '#a18cd1'); g.addColorStop(0.5, '#fecfef'); g.addColorStop(1, '#ff9a9e');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); break;
+      case 'rainbow': {
+        const stops = [['#ff3b30', 0], ['#ff9500', 0.2], ['#ffd60a', 0.4], ['#30d158', 0.6], ['#0a84ff', 0.8], ['#bf5af2', 1]];
+        const rg = ctx.createLinearGradient(0, 0, w, h);
+        for (const [c, o] of stops) rg.addColorStop(o, c);
+        ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h); break;
+      }
+      case 'ocean':
+        g.addColorStop(0, '#00c9ff'); g.addColorStop(1, '#92fe9d');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); break;
+      case 'grid': {
+        ctx.fillStyle = '#120a2e'; ctx.fillRect(0, 0, w, h);
+        const horizon = h * 0.5;
+        const sg = ctx.createLinearGradient(0, horizon - 80, 0, horizon);
+        sg.addColorStop(0, '#ffd93d'); sg.addColorStop(1, '#ff2d78');
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.arc(w / 2, horizon - 20, 70, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'destination-out';
+        for (let y = horizon - 85; y < horizon - 10; y += 7) ctx.fillRect(w / 2 - 70, y, 140, 3.5);
+        ctx.globalCompositeOperation = 'source-over';
+        const hg = ctx.createLinearGradient(0, horizon, 0, h);
+        hg.addColorStop(0, '#ff2d78'); hg.addColorStop(1, '#1a0b2e');
+        ctx.fillStyle = hg; ctx.fillRect(0, horizon, w, h - horizon);
+        ctx.strokeStyle = 'rgba(255,45,120,0.55)'; ctx.lineWidth = 1.4;
+        for (let i = 0; i < 12; i++) {
+          const y = horizon + (i * i) * (h - horizon) / 130;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+        for (let i = -8; i <= 8; i++) {
+          ctx.beginPath();
+          ctx.moveTo(w / 2 + i * 8, horizon);
+          ctx.lineTo(w / 2 + i * 46, h);
+          ctx.stroke();
+        }
+        break;
+      }
+    }
+  }
+
+  // стоп-кадр человека + яркий случайный фон + контур
+  function buildLayers(glowColor) {
+    const w = window.innerWidth, h = window.innerHeight;
+    // ЯРКИЙ ИГРОВОЙ ФОН (случайный из 8)
+    bgLayer = document.createElement('canvas');
+    bgLayer.width = w; bgLayer.height = h;
+    const b = bgLayer.getContext('2d');
+    drawBg(b, w, h, BG_KINDS[Math.floor(Math.random() * BG_KINDS.length)]);
+
+    // яркий контур: тройная окантовка (внешняя широкая + средняя + белая кромка)
+    glowLayer = document.createElement('canvas');
+    glowLayer.width = w; glowLayer.height = h;
+    const g = glowLayer.getContext('2d');
+    g.save();
+    g.translate(w, 0); g.scale(-1, 1);
+    g.shadowColor = glowColor;
+    g.shadowBlur = 52;
+    g.globalAlpha = 0.9;
+    g.drawImage(segMask, 0, 0, w, h);
+    g.shadowBlur = 20;
+    g.globalAlpha = 1;
+    g.drawImage(segMask, 0, 0, w, h);
+    g.shadowColor = '#ffffff';
+    g.shadowBlur = 6;
+    g.drawImage(segMask, 0, 0, w, h);
+    g.globalCompositeOperation = 'destination-out';
+    g.shadowBlur = 0;
+    g.drawImage(segMask, 0, 0, w, h);
+    g.restore();
+
+    // СТОП-КАДР ЧЕЛОВЕКА: замороженный кадр, вырезанный маской
+    personLayer = document.createElement('canvas');
+    personLayer.width = w; personLayer.height = h;
+    const p = personLayer.getContext('2d');
+    p.drawImage(snapshot, 0, 0, w, h);
+    p.globalCompositeOperation = 'destination-in';
+    p.save();
+    p.translate(w, 0); p.scale(-1, 1);
+    p.drawImage(segMask, 0, 0, w, h);
+    p.restore();
+    p.globalCompositeOperation = 'source-over';
+    window.__quizDebug.segApplied = true;
+  }
+
+  function freezeFrame(good) {
+    stopFx();
+    effect = 'freeze';
+    const w = window.innerWidth, h = window.innerHeight;
+    snapshot = captureSnapshot();
+    video.style.visibility = 'hidden'; // живое видео прячем — остаётся стоп-кадр
+    dbgLog('freezeFrame', { good, videoW: video.videoWidth, snapW: snapshot.width });
+    segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
+    makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
+    // конфетти при победе
+    confetti = [];
+    if (good) {
+      for (let i = 0; i < 160; i++) {
+        confetti.push({
+          x: Math.random() * w, y: -20 - Math.random() * h * 0.5,
+          r: 5 + Math.random() * 7,
+          vx: (Math.random() - 0.5) * 2.5,
+          vy: 2 + Math.random() * 4,
+          rot: Math.random() * Math.PI,
+          vr: (Math.random() - 0.5) * 0.3,
+          color: `hsl(${Math.random() * 360}, 100%, 65%)`
+        });
+      }
+    }
+    // японские шоу-эффекты
+    flash = { a: 0.85, color: '255,228,96' };
+    rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: 32 };
+    sparkles = [];
+    const hx = w / 2, hy = h * 0.34;
+    for (let i = 0; i < 42; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 1.5 + Math.random() * 4;
+      sparkles.push({
+        x: hx, y: hy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 0.8,
+        size: 7 + Math.random() * 11,
+        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.12,
+        ttl: 900 + Math.random() * 900,
+        t0: performance.now()
+      });
+    }
+    const shouts = ['СУПЕР!', 'ОГО!', 'КАВАЙИ!', 'Sugoi!', 'ЗАЖИГАЙ!', 'ВАУ!'];
+    const pick = () => shouts[Math.floor(Math.random() * shouts.length)];
+    const now0 = performance.now();
+    popTexts = [
+      { text: pick(), x: w * 0.5, y: h * 0.3, size: 54, color: '#ffe94d', t0: now0 + 120, life: 1500 },
+      { text: pick(), x: w * 0.2, y: h * 0.2, size: 34, color: '#ffffff', t0: now0 + 420, life: 1300 },
+      { text: pick(), x: w * 0.8, y: h * 0.25, size: 34, color: '#9ef4ff', t0: now0 + 680, life: 1300 }
+    ];
+    animateFx(w, h);
+  }
+
+  function startRain() {
+    stopFx();
+    effect = 'rain';
+    const w = window.innerWidth, h = window.innerHeight;
+    snapshot = captureSnapshot();
+    video.style.visibility = 'hidden';
+    dbgLog('startRain', { videoW: video.videoWidth, snapW: snapshot.width });
+    segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
+    makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
+    rain = [];
+    for (let i = 0; i < 220; i++) {
+      rain.push({
+        x: Math.random() * w, y: Math.random() * h,
+        len: 12 + Math.random() * 18,
+        vy: 9 + Math.random() * 8,
+        vx: -1.5 - Math.random() * 2
+      });
+    }
+    // дождь + лёгкая гроза
+    flash = { a: 0.5, color: '175,210,255' };
+    rays = null;
+    sparkles = [];
+    const oops = ['ОЙ-ОЙ!', 'УПС!', 'Zannen…', '💧'];
+    popTexts = [{
+      text: oops[Math.floor(Math.random() * oops.length)],
+      x: w * 0.5, y: h * 0.3, size: 46, color: '#a8c8ff',
+      t0: performance.now() + 150, life: 1400
+    }];
+    animateFx(w, h);
+  }
+
+  function stopFx() {
+    effect = null;
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    rain = []; confetti = []; sparkles = []; popTexts = [];
+    rays = null; flash = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    video.style.visibility = '';
+    snapshot = null;
+    segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
+    hideSegError();
+  }
+
+  function easeOutBack(x) {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  }
+
+  function drawSparkle(ctx, x, y, size, rot, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.shadowColor = '#ffe066';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, -size);
+    ctx.quadraticCurveTo(size * 0.15, -size * 0.15, size, 0);
+    ctx.quadraticCurveTo(size * 0.15, size * 0.15, 0, size);
+    ctx.quadraticCurveTo(-size * 0.15, size * 0.15, -size, 0);
+    ctx.quadraticCurveTo(-size * 0.15, -size * 0.15, 0, -size);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPopText(ctx, pt, now) {
+    const age = now - pt.t0;
+    if (age < 0 || age > pt.life) return;
+    const p = age / pt.life;
+    const scale = p < 0.2 ? easeOutBack(p / 0.2) : Math.max(0.85, 1 - (p - 0.2) * 0.25);
+    const alpha = p > 0.75 ? (1 - (p - 0.75) / 0.25) : 1;
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(Math.sin(age / 90) * 0.07);
+    ctx.scale(scale, scale);
+    ctx.font = `900 ${pt.size}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.shadowColor = pt.color;
+    ctx.shadowBlur = 26;
+    ctx.globalAlpha = alpha;
+    ctx.strokeText(pt.text, 0, 0);
+    ctx.fillStyle = pt.color;
+    ctx.fillText(pt.text, 0, 0);
+    ctx.restore();
+  }
+
+  function animateFx(w, h) {
+    if (!effect) return;
+    // страховка: всегда рисуем в CSS-координатах при любом DPR (некоторые браузеры сбрасывают transform)
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    // яркий фон
+    if (bgLayer) ctx.drawImage(bgLayer, 0, 0, w, h);
+    // лучи ЗА головой (под человеком, с внутренним радиусом — не заливают лицо)
+    if (effect === 'freeze' && rays) {
+      const cx = w / 2, cy = h * 0.34, R = Math.max(w, h) * 0.8, r0 = 110;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rays.rot);
+      ctx.shadowColor = 'rgba(255,220,80,0.95)';
+      ctx.shadowBlur = 32;
+      for (let i = 0; i < rays.count; i++) {
+        const a = (i / rays.count) * Math.PI * 2;
+        ctx.fillStyle = 'rgba(255,238,140,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+        ctx.arc(0, 0, R, a, a + 0.1);
+        ctx.lineTo(Math.cos(a + 0.1) * r0, Math.sin(a + 0.1) * r0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+      rays.rot += rays.speed;
+    }
+    // человек + контур (когда маска готова)
+    if (personLayer && glowLayer) {
+      window.__quizDebug.layersUsed = true;
+      ctx.drawImage(personLayer, 0, 0, w, h);
+      const pulse = 0.8 + 0.2 * Math.sin(performance.now() / 260);
+      ctx.globalAlpha = pulse;
+      ctx.drawImage(glowLayer, 0, 0, w, h);
+      ctx.globalAlpha = 1;
+    } else if (snapshot) {
+      // маска ещё не готова — обычный стоп-кадр
+      ctx.drawImage(snapshot, 0, 0, w, h);
+    }
+    if (effect === 'freeze') {
+      // конфетти
+      for (const c of confetti) {
+        c.x += c.vx; c.y += c.vy; c.rot += c.vr;
+        if (c.y > h + 20) { c.y = -20; c.x = Math.random() * w; }
+        ctx.save();
+        ctx.translate(c.x, c.y); ctx.rotate(c.rot);
+        ctx.fillStyle = c.color;
+        ctx.fillRect(-c.r / 2, -c.r / 2, c.r, c.r * 0.6);
+        ctx.restore();
+      }
+      // искры-звёзды
+      const now = performance.now();
+      for (const s of sparkles) {
+        const age = now - s.t0;
+        if (age > s.ttl) continue;
+        const k = 1 - age / s.ttl;
+        s.x += s.vx; s.y += s.vy; s.vy += 0.05; s.rot += s.vr;
+        drawSparkle(ctx, s.x, s.y, s.size * (0.55 + 0.55 * k), s.rot, Math.sin(age / 90) * 1.25 * k);
+      }
+      // слэм-тексты
+      for (const pt of popTexts) drawPopText(ctx, pt, now);
+    } else if (effect === 'rain') {
+      // дождь
+      ctx.strokeStyle = 'rgba(175,205,255,0.85)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      for (const d of rain) {
+        d.x += d.vx; d.y += d.vy;
+        if (d.y > h + 20) { d.y = -20; d.x = Math.random() * w; }
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x + d.vx * 3, d.y + d.len);
+      }
+      ctx.stroke();
+      // слэм-текст
+      for (const pt of popTexts) drawPopText(ctx, pt, performance.now());
+    }
+    // вспышка экрана (поверх всего)
+    if (flash) {
+      ctx.fillStyle = `rgba(${flash.color},${flash.a})`;
+      ctx.fillRect(0, 0, w, h);
+      flash.a *= 0.92;
+      if (flash.a < 0.01) flash = null;
+    }
+    // гроза при дожде: случайные вспышки
+    if (effect === 'rain' && !flash && Math.random() < 0.01) {
+      flash = { a: 0.42, color: '195,215,255' };
+    }
+    raf = requestAnimationFrame(() => animateFx(w, h));
+  }
+
+  // ---------- Игра ----------
+  function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+
+  function renderQuestion() {
+    const q = QUESTIONS[qIndex];
+    document.getElementById('qNum').textContent = `Вопрос ${qIndex + 1} из ${QUESTIONS.length}`;
+    document.getElementById('question').textContent = q.q;
+    const wrap = document.getElementById('answers');
+    wrap.innerHTML = '';
+    const order = shuffle(q.a.map((t, i) => ({ t, i })));
+    order.forEach(({ t, i }) => {
+      const b = document.createElement('button');
+      b.className = 'ans';
+      b.textContent = t;
+      b.onclick = () => answer(i, b);
+      wrap.appendChild(b);
+    });
+    document.getElementById('progress').style.width = (qIndex / QUESTIONS.length * 100) + '%';
+    document.getElementById('score').innerHTML = `Счёт: <b>${score}</b>/${QUESTIONS.length}`;
+    nextBtn.classList.add('hidden');
+    locked = false;
+  }
+
+  function answer(i, btn) {
+    if (locked) return;
+    locked = true;
+    const q = QUESTIONS[qIndex];
+    const buttons = [...document.querySelectorAll('.ans')];
+    const correct = i === q.c;
+    buttons.forEach(b => b.disabled = true);
+    if (correct) {
+      btn.classList.add('correct');
+      score++;
+      dbgLog('answer', { i, correct: 1 });
+      beep(880, 0.18, 'sine', 0.2);
+      showOverlay(winOverlay, 1000);
+      freezeFrame(true);
+    } else {
+      buttons[q.c].classList.add('correct');
+      btn.classList.add('wrong');
+      dbgLog('answer', { i, correct: 0 });
+      beep(180, 0.35, 'sawtooth', 0.15);
+      showOverlay(loseOverlay, 1000);
+      startRain();
+    }
+    // переход — по кнопке, не автоматом
+    nextBtn.textContent = (qIndex >= QUESTIONS.length - 1) ? 'Узнать результат 🏁' : 'Дальше →';
+    nextBtn.classList.remove('hidden');
+  }
+
+  nextBtn.onclick = () => {
+    captureRoundShot();
+    nextBtn.classList.add('hidden');
+    qIndex++;
+    if (qIndex >= QUESTIONS.length) {
+      finish();
+    } else {
+      stopFx();
+      renderQuestion();
+    }
+  };
+
+  function showOverlay(el, ms) {
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), ms);
+  }
+
+  function finish() {
+    stopFx();
+    document.getElementById('progress').style.width = '100%';
+    const win = score >= WIN_SCORE;
+    document.getElementById('endTitle').textContent = win ? '🏆 ТЫ ПОБЕДИЛ!' : '🌧 НЕ ПОВЕЗЛО';
+    document.getElementById('endText').textContent = win
+      ? `Правильных ответов: ${score} из ${QUESTIONS.length}. Забирай свой стоп-кадр!`
+      : `Правильных ответов: ${score} из ${QUESTIONS.length}. Попробуй ещё — и дождь закончится.`;
+    renderRoundStrip();
+    endScreen.classList.remove('hidden');
+    if (win) freezeFrame(true); else startRain();
+  }
+
+  // фото текущего стоп-кадра (фон + человек + контур) в ленту раунда
+  function captureRoundShot() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    if (bgLayer) x.drawImage(bgLayer, 0, 0, w, h);
+    if (personLayer) x.drawImage(personLayer, 0, 0, w, h);
+    if (glowLayer) x.drawImage(glowLayer, 0, 0, w, h);
+    else if (snapshot) x.drawImage(snapshot, 0, 0, w, h);
+    roundShots.push(c.toDataURL('image/jpeg', 0.85));
+  }
+
+  function renderRoundStrip() {
+    const strip = document.getElementById('roundStrip');
+    strip.innerHTML = '';
+    roundShots.forEach((src, idx) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = `Стоп-кадр ${idx + 1}`;
+      img.onclick = () => {
+        const a = document.createElement('a');
+        a.href = src;
+        a.download = `selfie-quiz-${idx + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+      strip.appendChild(img);
+    });
+    strip.classList.remove('hidden');
+  }
+
+  function startGame() {
+    score = 0; qIndex = 0;
+    roundShots = [];
+    document.getElementById('roundStrip').classList.add('hidden');
+    stopFx();
+    endScreen.classList.add('hidden');
+    ui.classList.remove('hidden');
+    renderQuestion();
+  }
+
+  // ---------- Старт ----------
+  document.getElementById('startBtn').onclick = async () => {
+    const ok = await startCamera();
+    startScreen.classList.add('hidden');
+    if (!ok) {
+      // без камеры всё равно можно играть — эффекты на чёрном фоне
+      video.style.background = 'linear-gradient(180deg,#1a1a2e,#16213e)';
+    }
+    initSelfieSeg();
+    startGame();
+  };
+  document.getElementById('againBtn').onclick = () => startGame();
+
+  // собрать картинку для шаринга: фон + человек + контур + счёт
+  function buildShareImage() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    if (bgLayer) x.drawImage(bgLayer, 0, 0, w, h);
+    if (personLayer) x.drawImage(personLayer, 0, 0, w, h);
+    if (glowLayer) x.drawImage(glowLayer, 0, 0, w, h);
+    else if (snapshot) x.drawImage(snapshot, 0, 0, w, h);
+    // счёт поверх
+    const win = score >= WIN_SCORE;
+    const label = win ? `🏆 ${score}/${QUESTIONS.length}` : `🌧 ${score}/${QUESTIONS.length}`;
+    x.font = '900 34px sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.lineWidth = 8;
+    x.strokeStyle = 'rgba(0,0,0,0.65)';
+    x.strokeText(label, w / 2, h - 90);
+    x.fillStyle = win ? '#ffd93d' : '#8ab4ff';
+    x.fillText(label, w / 2, h - 90);
+    x.font = '700 15px sans-serif';
+    x.lineWidth = 5;
+    x.strokeText('Селфи-квиз', w / 2, h - 58);
+    x.fillStyle = '#ffffff';
+    x.fillText('Селфи-квиз', w / 2, h - 58);
+    return c;
+  }
+
+  shareBtn.onclick = async () => {
+    try {
+      const img = buildShareImage();
+      const blob = await new Promise(res => img.toBlob(res, 'image/png'));
+      if (!blob) throw new Error('toBlob failed');
+      const file = new File([blob], 'selfie-quiz.png', { type: 'image/png' });
+      const shareData = {
+        files: [file],
+        title: 'Селфи-квиз',
+        text: `Я набрал ${score} из ${QUESTIONS.length}!`
+      };
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+      // фолбэк: скачать
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'selfie-quiz.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (e) {
+      dbgLog('share-error', { err: String(e) });
+    }
+  };
+  camOffBtn.onclick = () => { stopCamera(); camOffBtn.textContent = camOffBtn.textContent.includes('🚫') ? '📷 Камера' : '🚫 Камера'; };
+
+})();
+</script>
+</body>
+</html>
