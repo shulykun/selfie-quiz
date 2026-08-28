@@ -195,8 +195,8 @@
   .ans.wrong { color:var(--paper); background:var(--red); border-color:var(--ink); }
   .ans:disabled { opacity:1; }
   .btn.next { margin-top:13px; padding:10px 14px; border-radius:4px; font-size:13px; box-shadow:4px 5px 0 var(--ink); }
-  #winOverlay { color:var(--ink); background:rgba(255,227,79,.77); backdrop-filter:none; }
-  #loseOverlay { color:var(--ink); background:rgba(25,217,255,.68); }
+  #winOverlay { color:var(--ink); background:rgba(255,255,255,.08); backdrop-filter:none; }
+  #loseOverlay { color:var(--ink); background:rgba(25,217,255,.38); }
   #winOverlay .big, #loseOverlay .big {
     color:var(--paper); font-size:clamp(38px,10vw,58px); -webkit-text-stroke:8px var(--ink); paint-order:stroke fill;
     text-shadow:7px 8px 0 var(--red); transform:rotate(-4deg);
@@ -209,7 +209,7 @@
   #roundStrip img { height:132px; border:4px solid var(--ink); border-radius:3px; box-shadow:5px 6px 0 var(--ink); }
   .endBtns { flex-wrap:wrap; justify-content:center; margin-top:14px; padding-bottom:max(16px, env(safe-area-inset-bottom)); }
   .endBtns .btn { padding:12px 18px; font-size:13px; }
-  #camOff { color:var(--paper); background:var(--ink); border:3px solid var(--paper); border-radius:4px; font-weight:900; }
+  #camOff { top:max(82px, calc(env(safe-area-inset-top) + 68px)); padding:6px 9px; color:var(--paper); background:rgba(9,6,17,.72); border:2px solid var(--paper); border-radius:3px; font-size:10px; font-weight:900; opacity:.75; }
   #aiStatus { color:var(--ink); background:var(--paper); border:2px solid var(--ink); border-radius:2px; opacity:.9; }
   #segError { color:var(--paper); background:var(--red); border:3px solid var(--ink); border-radius:4px; box-shadow:5px 5px 0 var(--ink); }
   @media (max-height:700px) {
@@ -219,6 +219,14 @@
     #startScreen { padding:24px; }
     .h1 { font-size:34px; }
   }
+
+  /* Более компактный HUD оставляет портрету большую часть экрана. */
+  #card { padding:11px 10px 10px; }
+  #qNum { margin-top:-25px; margin-bottom:7px; padding:4px 8px; }
+  #question { margin-bottom:9px; font-size:16px; }
+  .answers { gap:6px; }
+  .ans { min-height:37px; padding:6px; font-size:12px; box-shadow:2px 3px 0 var(--ink); }
+  .btn.next { margin-top:9px; padding:8px 12px; }
 </style>
 </head>
 <body>
@@ -240,7 +248,7 @@
   </div>
 </div>
 
-<div id="winOverlay" class="flash"><div><div class="big">🏆 ВЫИГРЫШ!</div><div class="sub">Стоп-кадр. Ты — звезда.</div></div></div>
+<div id="winOverlay" class="flash"><div><div class="big">✓ ВЕРНО!</div><div class="sub">Стоп-кадр. Отличный ответ.</div></div></div>
 <div id="loseOverlay" class="flash"><div><div class="big">🌧 ПОРАЖЕНИЕ</div><div class="sub">Дождь идёт по тебе…</div></div></div>
 
 <div id="startScreen">
@@ -348,7 +356,7 @@
   let locked = false;
   let raf = null;
   let rain = [];
-  let confetti = [];
+  let impactParticles = [];
   let sparkles = [];
   let rays = null;      // лучи за головой (японский стиль)
   let popTexts = [];    // слэм-тексты («СУПЕР!», «ОГО!»)
@@ -451,6 +459,7 @@
       });
       window.__quizDebug.segState = 'ready';
       setAiStatus('AI: готово ✓');
+      if (!portraitLabEnabled) setTimeout(() => setAiStatus('', false), 1100);
     } catch (e) {
       window.__quizDebug.segState = 'init-error';
       window.__quizDebug.segError = String(e);
@@ -800,6 +809,7 @@
     // Если маска пришла после старта анимации, переносим уже летящие искры к голове.
     const shiftX = subjectAnchor.x - previousAnchor.x, shiftY = subjectAnchor.y - previousAnchor.y;
     for (const s of sparkles) { s.x += shiftX; s.y += shiftY; }
+    for (const c of impactParticles) { c.x += shiftX; c.y += shiftY; }
 
     // ЯРКИЙ ИГРОВОЙ ФОН (одна из четырёх режиссированных сцен)
     bgLayer = document.createElement('canvas');
@@ -832,10 +842,9 @@
       g.save(); g.globalAlpha = alpha; g.shadowColor = color; g.shadowBlur = blur;
       g.drawImage(ring, 0, 0); g.restore();
     };
-    drawRing(25, '#090611', 0.98, 4);
-    drawRing(17, '#fff8df', 1, 0);
-    drawRing(9, glowColor, 1, 2);
-    drawRing(4, '#fff8df', 1, 0);
+    drawRing(21, '#090611', 1, 2);
+    drawRing(12, '#fff8df', 1, 0);
+    drawRing(5, glowColor, 1, 0);
 
     // СТОП-КАДР ЧЕЛОВЕКА: замороженный кадр, вырезанный маской
     personLayer = document.createElement('canvas');
@@ -865,25 +874,33 @@
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
-    // конфетти при победе
-    confetti = [];
+    // Комиксный impact burst при победе: звёзды, точки, молнии и штрихи.
+    impactParticles = [];
     if (good) {
-      for (let i = 0; i < 96; i++) {
-        confetti.push({
-          x: Math.random() * w, y: -20 - Math.random() * h * 0.5,
-          r: 7 + Math.random() * 10,
-          vx: (Math.random() - 0.5) * 2.5,
-          vy: 2 + Math.random() * 4,
+      const palette = ['#ffe34f', '#ff3b4f', '#19d9ff', '#ff3fb4', '#fff8df'];
+      const kinds = ['star', 'dot', 'bolt', 'slash'];
+      for (let i = 0; i < 68; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2.8 + Math.random() * 6.2;
+        impactParticles.push({
+          kind: kinds[Math.floor(Math.random() * kinds.length)],
+          x: subjectAnchor.x, y: subjectAnchor.y,
+          angle,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 1.2,
+          r: 6 + Math.random() * 10,
           rot: Math.random() * Math.PI,
-          vr: (Math.random() - 0.5) * 0.3,
-          z: 0.55 + Math.random() * 0.75,
-          wave: Math.random() * Math.PI * 2,
-          color: `hsl(${Math.random() * 360}, 100%, 65%)`
+          vr: (Math.random() - 0.5) * 0.22,
+          z: 0.7 + Math.random() * 0.65,
+          t0: performance.now() + Math.random() * 180,
+          ttl: 1050 + Math.random() * 900,
+          posterDistance: 85 + Math.random() * 190,
+          color: palette[Math.floor(Math.random() * palette.length)]
         });
       }
     }
     // японские шоу-эффекты
-    flash = { a: 0.85, color: '255,228,96' };
+    flash = { a: 0.72, color: '255,255,255', decay: 0.64 };
     rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: 28 };
     sparkles = [];
     const hx = subjectAnchor.x, hy = subjectAnchor.y;
@@ -904,7 +921,7 @@
     const now0 = performance.now();
     popTexts = [
       { shape: 'burst', text: pick(), x: w * .5, y: h * .16, size: Math.min(46, w * .115), color: '#ffe34f', t0: now0 + 120, life: 1700 },
-      { shape: 'tag', text: 'NICE ANSWER // 正解', x: w * .22, y: h * .32, size: Math.min(15, w * .038), color: '#19d9ff', t0: now0 + 430, life: 1600 }
+      { shape: 'tag', text: 'NICE! // 正解', x: w * .22, y: h * .32, size: Math.min(16, w * .041), color: '#19d9ff', t0: now0 + 430, life: 1600 }
     ];
     animateFx(w, h);
   }
@@ -932,7 +949,7 @@
       });
     }
     // дождь + лёгкая гроза
-    flash = { a: 0.5, color: '175,210,255' };
+    flash = { a: 0.46, color: '175,210,255', decay: 0.86 };
     rays = null;
     sparkles = [];
     const oops = ['УПС!', 'МИМО!', 'ОЙ!'];
@@ -948,7 +965,7 @@
   function stopFx() {
     effect = null;
     if (raf) { cancelAnimationFrame(raf); raf = null; }
-    rain = []; confetti = []; sparkles = []; popTexts = [];
+    rain = []; impactParticles = []; sparkles = []; popTexts = [];
     rays = null; flash = null;
     lastFxTime = 0;
     layerRevealAt = 0;
@@ -980,6 +997,32 @@
     ctx.quadraticCurveTo(-size * 0.15, size * 0.15, -size, 0);
     ctx.quadraticCurveTo(-size * 0.15, -size * 0.15, 0, -size);
     ctx.fill();
+    ctx.restore();
+  }
+
+  function drawImpactParticle(ctx, c, x = c.x, y = c.y, alpha = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(c.rot); ctx.scale(c.z, c.z);
+    ctx.globalAlpha = Math.max(0, alpha); ctx.fillStyle = c.color;
+    ctx.strokeStyle = '#090611'; ctx.lineWidth = 2.2; ctx.lineJoin = 'round';
+    if (c.kind === 'star') {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? c.r * .43 : c.r;
+        i ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (c.kind === 'dot') {
+      ctx.beginPath(); ctx.arc(0, 0, c.r * .62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff8df'; ctx.beginPath(); ctx.arc(-c.r * .2, -c.r * .2, c.r * .14, 0, Math.PI * 2); ctx.fill();
+    } else if (c.kind === 'bolt') {
+      const r = c.r;
+      ctx.beginPath(); ctx.moveTo(-r * .2, -r); ctx.lineTo(r * .55, -r * .2); ctx.lineTo(r * .12, -.05 * r);
+      ctx.lineTo(r * .48, r); ctx.lineTo(-r * .58, r * .12); ctx.lineTo(-r * .12, -.08 * r); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.transform(1, .18, -.12, 1, 0, 0);
+      ctx.fillRect(-c.r * .9, -c.r * .22, c.r * 1.8, c.r * .44);
+      ctx.strokeRect(-c.r * .9, -c.r * .22, c.r * 1.8, c.r * .44);
+    }
     ctx.restore();
   }
 
@@ -1112,20 +1155,24 @@
       ctx.drawImage(snapshot, 0, 0, w, h);
     }
     if (effect === 'freeze' && reveal > .65) {
-      // конфетти
-      for (const c of confetti) {
-        c.wave += 0.045 * dt;
-        c.x += (c.vx + Math.sin(c.wave) * 0.8) * dt; c.y += c.vy * c.z * dt; c.rot += c.vr * dt;
-        if (c.y > h + 20) { c.y = -20; c.x = Math.random() * w; }
-        ctx.save();
-        ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.scale(c.z, Math.cos(c.wave) * c.z);
-        ctx.fillStyle = c.color;
-        ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 4;
-        ctx.beginPath();
-        ctx.moveTo(-c.r * .65, -c.r * .3); ctx.quadraticCurveTo(0, -c.r * .7, c.r * .65, -c.r * .25);
-        ctx.lineTo(c.r * .55, c.r * .3); ctx.quadraticCurveTo(0, 0, -c.r * .55, c.r * .35); ctx.closePath(); ctx.fill();
-        ctx.globalAlpha = .45; ctx.fillStyle = '#fff'; ctx.fillRect(-c.r * .4, -1, c.r * .8, 2);
-        ctx.restore();
+      // Короткий manga impact burst вместо бесконечного дождя из конфетти.
+      for (let ci = 0; ci < impactParticles.length; ci++) {
+        const c = impactParticles[ci];
+        const age = frameTime - c.t0;
+        if (age < 0) continue;
+        if (age > c.ttl) {
+          // После взрыва остаётся спокойная печатная композиция из 10 знаков.
+          if (ci < 10) {
+            const anchor = subjectAnchor || { x:w/2, y:h*.34 };
+            const d = c.posterDistance * .72;
+            drawImpactParticle(ctx, c, anchor.x + Math.cos(c.angle) * d, anchor.y + Math.sin(c.angle) * d * .74, .56);
+          }
+          continue;
+        }
+        const life = age / c.ttl, fade = life > .68 ? 1 - (life - .68) / .32 : 1;
+        c.vx *= Math.pow(.986, dt); c.vy += .055 * dt;
+        c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt;
+        drawImpactParticle(ctx, c, c.x, c.y, fade * Math.min(1, age / 100));
       }
       // искры-звёзды
       const now = performance.now();
@@ -1137,7 +1184,10 @@
         drawSparkle(ctx, s.x, s.y, s.size * (0.55 + 0.55 * k), s.rot, Math.sin(age / 90) * 1.25 * k);
       }
       // слэм-тексты
-      for (const pt of popTexts) drawPopText(ctx, pt, now);
+      for (const pt of popTexts) {
+        const holdTime = pt.t0 + pt.life * .48;
+        drawPopText(ctx, pt, now > pt.t0 + pt.life ? holdTime : now);
+      }
     } else if (effect === 'rain') {
       // дождь
       ctx.strokeStyle = 'rgba(175,205,255,0.85)';
@@ -1151,19 +1201,22 @@
       }
       ctx.stroke();
       // слэм-текст
-      for (const pt of popTexts) drawPopText(ctx, pt, performance.now());
+      for (const pt of popTexts) {
+        const now = performance.now(), holdTime = pt.t0 + pt.life * .48;
+        drawPopText(ctx, pt, now > pt.t0 + pt.life ? holdTime : now);
+      }
     }
     drawShowChrome(ctx, w, h, effect, performance.now());
     // вспышка экрана (поверх всего)
     if (flash) {
       ctx.fillStyle = `rgba(${flash.color},${flash.a})`;
       ctx.fillRect(0, 0, w, h);
-      flash.a *= 0.92;
+      flash.a *= flash.decay || 0.92;
       if (flash.a < 0.01) flash = null;
     }
     // гроза при дожде: случайные вспышки
     if (effect === 'rain' && !flash && Math.random() < 0.01) {
-      flash = { a: 0.42, color: '195,215,255' };
+      flash = { a: 0.42, color: '195,215,255', decay: 0.82 };
     }
     raf = requestAnimationFrame(t => animateFx(w, h, t));
   }
@@ -1204,14 +1257,12 @@
       document.getElementById('score').innerHTML = `Счёт: <b>${score}</b>/${QUESTIONS.length}`;
       dbgLog('answer', { i, correct: 1 });
       beep(880, 0.18, 'sine', 0.2);
-      showOverlay(winOverlay, 1000);
       freezeFrame(true);
     } else {
       buttons[q.c].classList.add('correct');
       btn.classList.add('wrong');
       dbgLog('answer', { i, correct: 0 });
       beep(180, 0.35, 'sawtooth', 0.15);
-      showOverlay(loseOverlay, 1000);
       startRain();
     }
     // переход — по кнопке, не автоматом
@@ -1250,7 +1301,7 @@
   }
 
   // Забираем именно тот шоу-кадр, который видит пользователь: вместе с лучами,
-  // конфетти, дождём, искрами, слэм-текстами и вспышками.
+  // impact-частицами, дождём, искрами, слэм-текстами и вспышками.
   function drawCurrentVisual(target, w, h) {
     if (effect && canvas.width && canvas.height) {
       target.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
@@ -1280,11 +1331,11 @@
     target.drawImage(personLayer, 0, 0, w, h);
     target.drawImage(glowLayer, 0, 0, w, h);
     if (effect === 'freeze') {
-      for (const c of confetti.slice(0, 30)) {
-        target.save(); target.translate(c.x, c.y); target.rotate(c.rot); target.scale(c.z, .7 * c.z);
-        target.fillStyle = c.color; target.strokeStyle = '#090611'; target.lineWidth = 1.5;
-        target.beginPath(); target.moveTo(-c.r * .6, -c.r * .3); target.quadraticCurveTo(0, -c.r * .7, c.r * .6, -c.r * .25);
-        target.lineTo(c.r * .5, c.r * .3); target.quadraticCurveTo(0, 0, -c.r * .5, c.r * .35); target.closePath(); target.fill(); target.stroke(); target.restore();
+      for (const c of impactParticles.slice(0, 28)) {
+        const d = c.posterDistance;
+        const x = anchor.x + Math.cos(c.angle) * d;
+        const y = anchor.y + Math.sin(c.angle) * d * .78;
+        drawImpactParticle(target, c, x, y, .9);
       }
     } else {
       target.save(); target.strokeStyle = 'rgba(80,136,210,.58)'; target.lineWidth = 2;
