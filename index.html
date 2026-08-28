@@ -253,7 +253,7 @@
 
 <div id="startScreen">
   <div class="h1">📸 Селфи-квиз</div>
-  <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — стоп-кадр с заливкой 🎉<br>Мимо — дождь 🌧</div>
+  <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — яркий manga-burst ✦<br>Мимо — новая драматичная сцена каждый раз</div>
   <button class="btn" id="startBtn">▶ Начать игру</button>
 </div>
 
@@ -313,7 +313,7 @@
     const style = e.target.dataset && e.target.dataset.style;
     if (!style) return;
     portraitStyle = style; portraitStyleLocked = true; window.__portraitStyle = style; syncStyleLab();
-    if (segMask && snapshot && effect) buildLayers(effect === 'freeze' ? '#ffe34f' : '#19d9ff');
+    if (segMask && snapshot && effect) buildLayers(effect === 'freeze' ? '#ffe34f' : '#52677f');
   };
   syncStyleLab();
   window.__portraitStyle = portraitStyle;
@@ -362,7 +362,10 @@
   let popTexts = [];    // слэм-тексты («СУПЕР!», «ОГО!»)
   let flash = null;     // вспышка экрана
   let roundShots = [];   // лента стоп-кадров раунда
-  let effect = null; // 'rain' | 'freeze'
+  let effect = null; // 'rain' (failure family) | 'freeze'
+  const FAILURE_MODES = ['fracture', 'ink', 'shock', 'rain'];
+  let failureMode = 'fracture';
+  let failureBag = [];
   let snapshot = null; // замороженный кадр (offscreen canvas)
   let segmenter = null; // MediaPipe Tasks ImageSegmenter
   let segMask = null;   // маска человека (canvas)
@@ -929,18 +932,22 @@
   function startRain() {
     stopFx();
     effect = 'rain';
+    if (!failureBag.length) failureBag = shuffle([...FAILURE_MODES]);
+    failureMode = failureBag.pop();
+    window.__quizDebug.failureMode = failureMode;
     selectPortraitMode();
     const w = window.innerWidth, h = window.innerHeight;
     snapshot = captureSnapshot();
     video.style.visibility = 'hidden';
-    dbgLog('startRain', { videoW: video.videoWidth, snapW: snapshot.width });
+    dbgLog('startFailure', { mode: failureMode, videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
     layerRevealAt = 0;
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     rain = [];
-    for (let i = 0; i < 150; i++) {
+    const rainCount = failureMode === 'rain' ? 150 : (failureMode === 'shock' ? 34 : 0);
+    for (let i = 0; i < rainCount; i++) {
       rain.push({
         x: Math.random() * w, y: Math.random() * h,
         len: 18 + Math.random() * 54,
@@ -956,11 +963,18 @@
     flash = { a: 0.26, color: '190,210,225', decay: 0.78 };
     rays = null;
     sparkles = [];
-    const oops = ['УПС!', 'МИМО!', 'ОЙ!'];
+    const copy = {
+      fracture: ['КРАК!', 'МИМО!'],
+      ink: ['Мимо…', 'НЕТ!'],
+      shock: ['えっ…', 'ОЙ!'],
+      rain: ['УПС!', 'МИМО!']
+    };
+    const oops = copy[failureMode];
     popTexts = [{
-      shape: 'bubble',
+      shape: failureMode === 'fracture' ? 'burst' : 'bubble',
       text: oops[Math.floor(Math.random() * oops.length)],
-      x: w * 0.5, y: h * 0.3, size: Math.min(42, w * .105), color: '#19d9ff',
+      x: w * 0.5, y: h * 0.3, size: Math.min(42, w * .105),
+      color: failureMode === 'fracture' ? '#e5484d' : '#71859a',
       t0: performance.now() + 150, life: 1400
     }];
     animateFx(w, h);
@@ -1144,6 +1158,76 @@
     ctx.restore();
   }
 
+  function drawFailureFracture(ctx, w, h) {
+    const cx = w * .52, cy = h * .36;
+    const ends = [[-.58,-.35],[-.48,.22],[-.32,.7],[.08,.78],[.5,.55],[.62,.05],[.48,-.48],[.02,-.72]];
+    ctx.save(); ctx.strokeStyle = 'rgba(4,6,12,.92)'; ctx.lineWidth = 7; ctx.lineJoin = 'miter';
+    for (let i = 0; i < ends.length; i++) {
+      const ex = cx + ends[i][0] * w, ey = cy + ends[i][1] * h;
+      const mx = cx + (ex - cx) * .48 + (i % 2 ? 18 : -14);
+      const my = cy + (ey - cy) * .48;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(mx, my); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(226,232,238,.42)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + 3, cy); ctx.lineTo(mx + 3, my); ctx.lineTo(ex + 3, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(4,6,12,.92)'; ctx.lineWidth = 7;
+    }
+    // Несколько панелей чуть различаются по плотности, словно печатный лист раскололся.
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(30,38,54,.28)';
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(w,0); ctx.lineTo(w,h*.55); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(80,18,34,.2)';
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(0,h*.58); ctx.lineTo(0,h); ctx.lineTo(w*.58,h); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawFailureInk(ctx, w, h, now) {
+    ctx.save(); ctx.fillStyle = 'rgba(3,5,10,.88)';
+    const pulse = 1 + Math.sin(now / 380) * .018;
+    const blobs = [[-.03,.18,.2],[.03,.72,.24],[1.02,.3,.27],[.98,.79,.22],[.23,1.01,.24],[.78,-.02,.2]];
+    for (const [nx,ny,nr] of blobs) {
+      ctx.beginPath();
+      for (let i=0;i<18;i++) {
+        const a=i/18*Math.PI*2, rough=1+Math.sin(i*7+nx*13)*.16;
+        const x=nx*w+Math.cos(a)*nr*Math.min(w,h)*rough*pulse;
+        const y=ny*h+Math.sin(a)*nr*Math.min(w,h)*rough*pulse;
+        i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(3,5,10,.55)';
+    for (let i=0;i<14;i++) {
+      const x=(i*83%Math.max(1,w)), y=(i*137%Math.max(1,h));
+      ctx.beginPath(); ctx.arc(x,y,2+(i%4)*2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawFailureShock(ctx, w, h, now) {
+    ctx.save();
+    const top = h * .07, bottom = h * .54;
+    for (let i=0;i<46;i++) {
+      const x=(i+.5)/46*w, len=(.32+((i*17)%13)/18)*(bottom-top);
+      ctx.strokeStyle = i%4 ? 'rgba(7,10,18,.42)' : 'rgba(215,224,232,.34)';
+      ctx.lineWidth = i%5===0 ? 5 : 2;
+      ctx.beginPath(); ctx.moveTo(x,top); ctx.lineTo(x + Math.sin(i*2.3)*5, top+len); ctx.stroke();
+    }
+    const shake = Math.sin(now/42)*3;
+    ctx.strokeStyle='rgba(7,10,18,.82)'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.moveTo(w*.22+shake,h*.18); ctx.lineTo(w*.16+shake,h*.29); ctx.lineTo(w*.23+shake,h*.28); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w*.78-shake,h*.18); ctx.lineTo(w*.84-shake,h*.29); ctx.lineTo(w*.77-shake,h*.28); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFailureScene(ctx, w, h, dt, now) {
+    drawFailureGrade(ctx, w, h);
+    if (failureMode === 'fracture') drawFailureFracture(ctx, w, h);
+    else if (failureMode === 'ink') drawFailureInk(ctx, w, h, now);
+    else if (failureMode === 'shock') {
+      drawFailureShock(ctx, w, h, now);
+      drawFailureRain(ctx, w, h, dt);
+    } else drawFailureRain(ctx, w, h, dt);
+  }
+
   function animateFx(w, h, frameTime = performance.now()) {
     if (!effect) return;
     const dt = lastFxTime ? Math.min(2, (frameTime - lastFxTime) / 16.667) : 1;
@@ -1232,8 +1316,7 @@
         drawPopText(ctx, pt, now > pt.t0 + pt.life ? holdTime : now);
       }
     } else if (effect === 'rain') {
-      drawFailureGrade(ctx, w, h);
-      drawFailureRain(ctx, w, h, dt);
+      drawFailureScene(ctx, w, h, dt, frameTime);
       // слэм-текст
       for (const pt of popTexts) {
         const now = performance.now(), holdTime = pt.t0 + pt.life * .48;
@@ -1249,7 +1332,7 @@
       if (flash.a < 0.01) flash = null;
     }
     // гроза при дожде: случайные вспышки
-    if (effect === 'rain' && !flash && Math.random() < 0.0035) {
+    if (effect === 'rain' && failureMode === 'rain' && !flash && Math.random() < 0.0035) {
       flash = { a: 0.20, color: '185,205,225', decay: 0.74 };
     }
     raf = requestAnimationFrame(t => animateFx(w, h, t));
@@ -1328,14 +1411,14 @@
     document.getElementById('endTitle').textContent = win ? '🏆 ТЫ ПОБЕДИЛ!' : '🌧 НЕ ПОВЕЗЛО';
     document.getElementById('endText').textContent = win
       ? `Правильных ответов: ${score} из ${QUESTIONS.length}. Забирай свой стоп-кадр!`
-      : `Правильных ответов: ${score} из ${QUESTIONS.length}. Попробуй ещё — и дождь закончится.`;
+      : `Правильных ответов: ${score} из ${QUESTIONS.length}. Ещё раунд — перепишем финальную панель.`;
     renderRoundStrip();
     endScreen.classList.remove('hidden');
     if (win) freezeFrame(true); else startRain();
   }
 
   // Забираем именно тот шоу-кадр, который видит пользователь: вместе с лучами,
-  // impact-частицами, дождём, искрами, слэм-текстами и вспышками.
+  // impact-частицами, семейством failure-сцен, искрами, слэм-текстами и вспышками.
   function drawCurrentVisual(target, w, h) {
     if (effect && canvas.width && canvas.height) {
       target.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
@@ -1372,14 +1455,7 @@
         drawImpactParticle(target, c, x, y, .9);
       }
     } else {
-      drawFailureGrade(target, w, h);
-      target.save(); target.lineCap = 'square';
-      for (const d of rain.slice(0, 90)) {
-        target.strokeStyle = `rgba(112,139,168,${Math.min(.72, d.alpha)})`;
-        target.lineWidth = d.width;
-        target.beginPath(); target.moveTo(d.x, d.y); target.lineTo(d.x + d.vx * 2.8, d.y + d.len); target.stroke();
-      }
-      target.restore();
+      drawFailureScene(target, w, h, 0, 900);
     }
     for (const pt of popTexts) drawPopText(target, pt, pt.t0 + pt.life * .42);
     drawShowChrome(target, w, h, effect, 0);
