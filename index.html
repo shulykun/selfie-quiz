@@ -114,6 +114,111 @@
     box-shadow:0 6px 24px rgba(0,0,0,.4); display:none; max-width:90%;
   }
   #segError.show { display:block; }
+  #styleLab {
+    position:fixed; top:max(58px, calc(env(safe-area-inset-top) + 48px)); left:50%;
+    transform:translateX(-50%); z-index:10; display:none; gap:4px; padding:4px;
+    border:2px solid #090611; border-radius:99px; background:#fff8df;
+    box-shadow:5px 5px 0 #090611; white-space:nowrap;
+  }
+  #styleLab.show { display:flex; }
+  #styleLab button {
+    border:0; border-radius:99px; padding:7px 11px; color:#090611; background:transparent;
+    font-size:11px; font-weight:900; cursor:pointer;
+  }
+  #styleLab button.active { color:#fff; background:#090611; }
+
+  /* ---------- Manga × Pop Art UI ---------- */
+  :root { --ink:#090611; --paper:#fff8df; --yellow:#ffe34f; --red:#ff3b4f; --cyan:#19d9ff; --magenta:#ff3fb4; }
+  #startScreen, #endScreen {
+    overflow:hidden; isolation:isolate; backdrop-filter:none; color:var(--ink);
+    background:linear-gradient(135deg, rgba(255,59,79,.96) 0 52%, rgba(255,227,79,.96) 52% 100%);
+  }
+  #startScreen::before, #endScreen::before {
+    content:''; position:absolute; inset:-20px; z-index:-2; opacity:.34;
+    background-image:radial-gradient(var(--ink) 1.6px, transparent 1.8px);
+    background-size:16px 16px; transform:rotate(-5deg) scale(1.08);
+  }
+  #startScreen::after, #endScreen::after {
+    content:''; position:absolute; inset:12px; z-index:-1; pointer-events:none;
+    border:5px solid var(--ink); box-shadow:inset 0 0 0 4px var(--paper);
+  }
+  .h1 {
+    max-width:390px; margin-bottom:18px; color:var(--paper); font-size:clamp(34px,9vw,52px);
+    line-height:.95; letter-spacing:-2px; text-transform:uppercase;
+    -webkit-text-stroke:7px var(--ink); paint-order:stroke fill;
+    filter:drop-shadow(7px 8px 0 var(--ink));
+  }
+  .p {
+    max-width:360px; padding:15px 18px; color:var(--ink); background:var(--paper); opacity:1;
+    border:4px solid var(--ink); font-size:14px; font-weight:800; line-height:1.45;
+    box-shadow:7px 8px 0 var(--ink); transform:rotate(-1deg);
+  }
+  .btn {
+    position:relative; margin-top:24px; padding:14px 28px; color:var(--ink); background:var(--yellow);
+    border:4px solid var(--ink); border-radius:8px; font-size:17px; text-transform:uppercase;
+    box-shadow:7px 8px 0 var(--ink); transition:transform .1s ease, box-shadow .1s ease;
+  }
+  .btn:active { transform:translate(5px,6px); box-shadow:2px 2px 0 var(--ink); }
+  .btn.secondary { color:var(--paper); background:var(--cyan); border:4px solid var(--ink); box-shadow:7px 8px 0 var(--ink); }
+  #ui { padding:max(13px, env(safe-area-inset-top)) 13px max(13px, env(safe-area-inset-bottom)); }
+  #ui::before { background:linear-gradient(180deg,rgba(9,6,17,.5),transparent 35%,rgba(9,6,17,.12)); }
+  #top { gap:8px; align-items:flex-start; }
+  #top .logo {
+    max-width:70%; padding:7px 9px; color:var(--ink); background:var(--paper); border:3px solid var(--ink);
+    font-size:13px; line-height:1.05; text-shadow:none; box-shadow:4px 4px 0 var(--ink); transform:rotate(-1deg);
+  }
+  #top .logo span { color:var(--red); }
+  #score {
+    padding:7px 9px; color:var(--paper); background:var(--ink); border:3px solid var(--paper);
+    font-size:12px; font-weight:900; opacity:1; text-shadow:none; transform:rotate(1deg);
+  }
+  #score b { color:var(--yellow); }
+  #progressWrap { height:12px; margin-top:3px; border:3px solid var(--ink); border-radius:0; background:var(--paper); }
+  #progress { border-radius:0; background:repeating-linear-gradient(-45deg,var(--yellow) 0 10px,var(--red) 10px 20px); }
+  #card {
+    margin-top:auto; padding:15px 13px 13px; color:var(--ink); background:rgba(255,248,223,.96);
+    backdrop-filter:none; border:4px solid var(--ink); border-radius:6px; box-shadow:8px 9px 0 var(--ink);
+    transform:rotate(-.35deg);
+  }
+  #qNum {
+    display:inline-block; margin:-30px 0 9px -5px; padding:5px 9px; color:var(--paper); background:var(--red);
+    border:3px solid var(--ink); font-size:10px; box-shadow:3px 3px 0 var(--ink); transform:rotate(-2deg);
+  }
+  #question { margin-bottom:13px; color:var(--ink); font-size:18px; line-height:1.2; letter-spacing:-.25px; }
+  .answers { gap:8px; }
+  .ans {
+    min-height:43px; padding:8px; color:var(--ink); background:#fff; border:3px solid var(--ink);
+    border-radius:4px; font-size:13px; box-shadow:3px 4px 0 var(--ink);
+  }
+  .ans:active { transform:translate(2px,3px); box-shadow:1px 1px 0 var(--ink); }
+  .ans.correct { color:var(--ink); background:var(--yellow); border-color:var(--ink); }
+  .ans.wrong { color:var(--paper); background:var(--red); border-color:var(--ink); }
+  .ans:disabled { opacity:1; }
+  .btn.next { margin-top:13px; padding:10px 14px; border-radius:4px; font-size:13px; box-shadow:4px 5px 0 var(--ink); }
+  #winOverlay { color:var(--ink); background:rgba(255,227,79,.77); backdrop-filter:none; }
+  #loseOverlay { color:var(--ink); background:rgba(25,217,255,.68); }
+  #winOverlay .big, #loseOverlay .big {
+    color:var(--paper); font-size:clamp(38px,10vw,58px); -webkit-text-stroke:8px var(--ink); paint-order:stroke fill;
+    text-shadow:7px 8px 0 var(--red); transform:rotate(-4deg);
+  }
+  #winOverlay .sub, #loseOverlay .sub { margin-top:18px; color:var(--ink); font-weight:900; }
+  #endScreen { justify-content:flex-start; overflow-y:auto; padding:70px 22px 32px; }
+  #endScreen .h1 { font-size:clamp(30px,8vw,46px); }
+  #endScreen .p { flex-shrink:0; }
+  #roundStrip { width:100%; margin:18px 0 8px; padding:8px 6px 13px; gap:10px; }
+  #roundStrip img { height:132px; border:4px solid var(--ink); border-radius:3px; box-shadow:5px 6px 0 var(--ink); }
+  .endBtns { flex-wrap:wrap; justify-content:center; margin-top:14px; padding-bottom:max(16px, env(safe-area-inset-bottom)); }
+  .endBtns .btn { padding:12px 18px; font-size:13px; }
+  #camOff { color:var(--paper); background:var(--ink); border:3px solid var(--paper); border-radius:4px; font-weight:900; }
+  #aiStatus { color:var(--ink); background:var(--paper); border:2px solid var(--ink); border-radius:2px; opacity:.9; }
+  #segError { color:var(--paper); background:var(--red); border:3px solid var(--ink); border-radius:4px; box-shadow:5px 5px 0 var(--ink); }
+  @media (max-height:700px) {
+    #card { padding-top:12px; }
+    #question { font-size:16px; }
+    .ans { min-height:38px; }
+    #startScreen { padding:24px; }
+    .h1 { font-size:34px; }
+  }
 </style>
 </head>
 <body>
@@ -157,6 +262,11 @@
 <button id="camOff" class="hidden">🚫 Камера</button>
 <div id="segError"></div>
 <div id="aiStatus"></div>
+<div id="styleLab" aria-label="Лаборатория портрета">
+  <button data-style="original">Original</button>
+  <button data-style="pop">Pop</button>
+  <button data-style="manga">Manga</button>
+</div>
 
 <script>
 (() => {
@@ -183,6 +293,38 @@
   const shareBtn = document.getElementById('shareBtn');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
+  const styleLab = document.getElementById('styleLab');
+  const query = new URLSearchParams(location.search);
+  const portraitLabEnabled = query.get('lab') === '1';
+  let portraitStyle = query.get('style') || 'manga';
+  let portraitStyleLocked = query.has('style') || portraitLabEnabled;
+  let roundPortraitModes = [];
+  if (portraitLabEnabled) styleLab.classList.add('show');
+  const syncStyleLab = () => styleLab.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.style === portraitStyle));
+  styleLab.onclick = e => {
+    const style = e.target.dataset && e.target.dataset.style;
+    if (!style) return;
+    portraitStyle = style; portraitStyleLocked = true; window.__portraitStyle = style; syncStyleLab();
+    if (segMask && snapshot && effect) buildLayers(effect === 'freeze' ? '#ffe34f' : '#19d9ff');
+  };
+  syncStyleLab();
+  window.__portraitStyle = portraitStyle;
+
+  function preparePortraitModes() {
+    const patterns = [
+      ['manga','pop','manga','manga','pop','manga'],
+      ['manga','manga','pop','manga','manga','pop'],
+      ['pop','manga','manga','pop','manga','manga']
+    ];
+    roundPortraitModes = patterns[Math.floor(Math.random() * patterns.length)].slice();
+  }
+
+  function selectPortraitMode() {
+    if (!portraitStyleLocked) portraitStyle = roundPortraitModes[qIndex] || 'manga';
+    window.__portraitStyle = portraitStyle;
+    canvas.dataset.portraitStyle = portraitStyle;
+    syncStyleLab();
+  }
   window.__quizDebug = { segState: 'idle', segError: null, logs: [] };
   const dbgLog = (ev, extra) => { try { window.__quizDebug.logs.push({ t: Date.now(), ev, ...extra }); } catch (e) {} };
 
@@ -219,11 +361,29 @@
   let personLayer = null; // стоп-кадр человека, вырезанный маской
   let bgLayer = null;   // яркий игровой фон (случайный)
   let glowLayer = null; // яркий контур по маске
+  let subjectAnchor = null; // центр силуэта для лучей, искр и текстов
+  let lastFxTime = 0;
+  let layerRevealAt = 0;
+  let currentBgKind = null;
+  const renderDpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  // Рисуем как CSS object-fit: cover, без растягивания лица и тела.
+  function drawCover(target, source, w, h, mirror = false) {
+    const sw = source.videoWidth || source.width;
+    const sh = source.videoHeight || source.height;
+    if (!sw || !sh) return;
+    const scale = Math.max(w / sw, h / sh);
+    const dw = sw * scale, dh = sh * scale;
+    target.save();
+    if (mirror) { target.translate(w, 0); target.scale(-1, 1); }
+    target.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    target.restore();
+  }
 
   function resize() {
-    canvas.width = window.innerWidth * devicePixelRatio;
-    canvas.height = window.innerHeight * devicePixelRatio;
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    canvas.width = window.innerWidth * renderDpr;
+    canvas.height = window.innerHeight * renderDpr;
+    ctx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
   }
   window.addEventListener('resize', resize);
   resize();
@@ -268,9 +428,8 @@
     s.width = w; s.height = h;
     const c = s.getContext('2d');
     if (video.videoWidth > 0 && video.videoHeight > 0) {
-      // зеркалим, как в #cam
-      c.translate(w, 0); c.scale(-1, 1);
-      c.drawImage(video, 0, 0, w, h);
+      // зеркалим и кадрируем точно так же, как video с object-fit: cover
+      drawCover(c, video, w, h, true);
     } else {
       c.fillStyle = '#1a1a2e';
       c.fillRect(0, 0, w, h);
@@ -282,7 +441,8 @@
     try {
       window.__quizDebug.segState = 'loading';
       setAiStatus('AI: загрузка модели…');
-      const src = await import('/quiz/vendor/tasks/vision_bundle.mjs');
+      // Версия в URL не даёт браузеру переиспользовать старый MIME/модуль после деплоя.
+      const src = await import('/quiz/vendor/tasks/vision_bundle.mjs?v=visual-2');
       const vision = await src.FilesetResolver.forVisionTasks('/quiz/vendor/tasks/wasm/');
       segmenter = await src.ImageSegmenter.createFromOptions(vision, {
         baseOptions: { modelAssetPath: '/quiz/vendor/tasks/selfie_segmenter.tflite' },
@@ -321,8 +481,12 @@
       }, 20000);
       const runSeg = () => {
         const c = document.createElement('canvas');
-        c.width = video.videoWidth; c.height = video.videoHeight;
-        c.getContext('2d').drawImage(video, 0, 0);
+        // Модель получает уже кадрированный viewport: маска совпадает со стоп-кадром.
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const scale = Math.min(1, 640 / Math.max(vw, vh));
+        c.width = Math.max(1, Math.round(vw * scale));
+        c.height = Math.max(1, Math.round(vh * scale));
+        drawCover(c.getContext('2d'), video, c.width, c.height, false);
         let p = null;
         try { p = segmenter.segment(c); } catch (e) {
           window.__quizDebug.segError = String(e);
@@ -342,11 +506,18 @@
           const mc = m.getContext('2d');
           const imgData = mc.createImageData(cm.width, cm.height);
           const px = imgData.data;
+          let minX = cm.width, minY = cm.height, maxX = 0, maxY = 0, found = false;
           for (let i = 0; i < arr.length; i++) {
             const a = 255 - arr[i]; // человек непрозрачен, фон прозрачен
             px[i * 4] = 255; px[i * 4 + 1] = 255; px[i * 4 + 2] = 255; px[i * 4 + 3] = a;
+            if (a > 72) {
+              const x = i % cm.width, y = Math.floor(i / cm.width);
+              minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+              minY = Math.min(minY, y); maxY = Math.max(maxY, y); found = true;
+            }
           }
           mc.putImageData(imgData, 0, 0);
+          if (found) m.__subject = { minX, minY, maxX, maxY };
           dbgLog('mask-result', { has: true, elapsed: Date.now() - t0 });
           finish(m, null);
         }).catch(e => {
@@ -373,19 +544,93 @@
     if (res.mask && (effect === 'freeze' || effect === 'rain')) {
       segMask = res.mask;
       // победа — золотой контур, поражение — голубой
-      buildLayers(effect === 'freeze' ? '#ffd93d' : '#6ea8ff');
+      buildLayers(effect === 'freeze' ? '#ffe34f' : '#19d9ff');
       hideSegError();
     } else if (res.error) {
       showSegError(res.error);
     }
   }
 
-  const BG_KINDS = ['neon', 'fire', 'space', 'cyber', 'sunset', 'rainbow', 'ocean', 'grid'];
+  // Четыре цельные сцены вместо набора случайных градиентов.
+  const BG_KINDS = ['burst', 'halftone', 'speed', 'panels'];
 
   // яркие игровые фоны
-  function drawBg(ctx, w, h, kind) {
+  function drawBg(ctx, w, h, kind, anchor = { x: w * 0.5, y: h * 0.34 }) {
     const g = ctx.createLinearGradient(0, 0, 0, h);
     switch (kind) {
+      case 'burst': {
+        const base = ctx.createRadialGradient(anchor.x, anchor.y, 0, anchor.x, anchor.y, Math.max(w, h));
+        base.addColorStop(0, '#ff7a3d'); base.addColorStop(0.34, '#e52f70'); base.addColorStop(1, '#18072f');
+        ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
+        ctx.save(); ctx.translate(anchor.x, anchor.y);
+        const count = 36, R = Math.max(w, h) * 1.4;
+        for (let i = 0; i < count; i++) {
+          const a = i / count * Math.PI * 2;
+          ctx.fillStyle = i % 2 ? 'rgba(255,238,122,.18)' : 'rgba(255,255,255,.07)';
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a, a + 0.085); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        break;
+      }
+      case 'halftone': {
+        ctx.fillStyle = '#fff8df'; ctx.fillRect(0, 0, w, h);
+        ctx.save();
+        const gap = 18, maxD = Math.max(w, h) * .72;
+        for (let y = -gap; y < h + gap; y += gap) {
+          for (let x = -gap; x < w + gap; x += gap) {
+            const d = Math.hypot(x - anchor.x, y - anchor.y);
+            const size = 1.3 + Math.max(0, 1 - d / maxD) * 5.2;
+            ctx.fillStyle = x < anchor.x ? '#ff3b4f' : '#19d9ff';
+            ctx.globalAlpha = .72;
+            ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#090611'; ctx.lineWidth = 9;
+        ctx.beginPath(); ctx.moveTo(-20, h * .78); ctx.lineTo(w + 20, h * .58); ctx.stroke();
+        ctx.restore();
+        break;
+      }
+      case 'rings': {
+        const base = ctx.createLinearGradient(0, 0, w, h);
+        base.addColorStop(0, '#0b123e'); base.addColorStop(0.5, '#51206f'); base.addColorStop(1, '#120826');
+        ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
+        ctx.save(); ctx.translate(anchor.x, anchor.y); ctx.globalCompositeOperation = 'screen';
+        for (let r = 80, i = 0; r < Math.max(w, h) * 0.9; r += 54, i++) {
+          ctx.strokeStyle = i % 2 ? 'rgba(0,229,255,.26)' : 'rgba(255,58,170,.3)';
+          ctx.lineWidth = 10 - Math.min(6, i * 0.5); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+        break;
+      }
+      case 'speed': {
+        const base = ctx.createLinearGradient(0, 0, w, h);
+        base.addColorStop(0, '#07172e'); base.addColorStop(0.55, '#123d72'); base.addColorStop(1, '#050713');
+        ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
+        ctx.save(); ctx.translate(anchor.x, anchor.y); ctx.rotate(-0.14);
+        for (let i = 0; i < 54; i++) {
+          const a = Math.random() * Math.PI * 2, near = 80 + Math.random() * 120, far = near + 100 + Math.random() * 380;
+          ctx.strokeStyle = i % 4 === 0 ? 'rgba(255,232,92,.55)' : 'rgba(113,224,255,.28)';
+          ctx.lineWidth = 1 + Math.random() * 4; ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * near, Math.sin(a) * near); ctx.lineTo(Math.cos(a) * far, Math.sin(a) * far); ctx.stroke();
+        }
+        ctx.restore();
+        break;
+      }
+      case 'panels': {
+        ctx.fillStyle = '#fff8df'; ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#ff3b4f';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w * .72, 0); ctx.lineTo(w * .42, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffe34f';
+        ctx.beginPath(); ctx.moveTo(w * .75, 0); ctx.lineTo(w, 0); ctx.lineTo(w, h); ctx.lineTo(w * .45, h); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#090611'; ctx.lineWidth = 12;
+        ctx.beginPath(); ctx.moveTo(w * .735, -20); ctx.lineTo(w * .435, h + 20); ctx.stroke();
+        ctx.save(); ctx.globalAlpha = .22; ctx.strokeStyle = '#090611'; ctx.lineWidth = 2;
+        for (let x = -h; x < w + h; x += 14) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - h * .55, h); ctx.stroke();
+        }
+        ctx.restore();
+        break;
+      }
       case 'neon':
         g.addColorStop(0, '#2b1055'); g.addColorStop(0.5, '#7597de'); g.addColorStop(1, '#f3a183');
         ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); break;
@@ -450,37 +695,147 @@
         break;
       }
     }
+    // Общий слой «телешоу»: halftone + световой центр + виньетка.
+    ctx.save();
+    ctx.globalAlpha = 0.13;
+    ctx.fillStyle = '#fff';
+    for (let y = 10; y < h; y += 22) {
+      for (let x = 10 + ((y / 22) % 2) * 11; x < w; x += 22) {
+        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.globalCompositeOperation = 'screen';
+    const spot = ctx.createRadialGradient(anchor.x, anchor.y, 10, anchor.x, anchor.y, Math.max(w, h) * 0.62);
+    spot.addColorStop(0, 'rgba(255,255,255,0.26)');
+    spot.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = spot; ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    const vignette = ctx.createRadialGradient(anchor.x, anchor.y, Math.min(w, h) * 0.18, anchor.x, anchor.y, Math.max(w, h) * 0.72);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(5,0,20,0.48)');
+    ctx.fillStyle = vignette; ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+
+  function stylizePortrait(layer, style) {
+    if (style === 'original') return;
+    const started = performance.now();
+    const c = layer.getContext('2d');
+    const img = c.getImageData(0, 0, layer.width, layer.height);
+    const px = img.data;
+    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    if (style === 'pop') {
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i + 3] < 8) continue;
+        let r = px[i], g = px[i + 1], b = px[i + 2];
+        // Контраст + насыщенность + 6 печатных уровней на канал.
+        r = (r - 128) * 1.25 + 128; g = (g - 128) * 1.25 + 128; b = (b - 128) * 1.25 + 128;
+        const gray = r * 0.299 + g * 0.587 + b * 0.114;
+        r = gray + (r - gray) * 1.42; g = gray + (g - gray) * 1.42; b = gray + (b - gray) * 1.42;
+        const q = v => Math.max(0, Math.min(255, Math.round(v / 42.5) * 42.5));
+        px[i] = q(r); px[i + 1] = q(g); px[i + 2] = q(b);
+      }
+    } else {
+      const count = layer.width * layer.height;
+      const luminance = new Uint8Array(count);
+      const chroma = new Uint8Array(count);
+      for (let n = 0, i = 0; n < count; n++, i += 4) {
+        if (px[i + 3] < 8) continue;
+        const r = px[i], g = px[i + 1], b = px[i + 2];
+        luminance[n] = Math.max(0, Math.min(255, ((r * .299 + g * .587 + b * .114) - 128) * 1.16 + 128));
+        chroma[n] = Math.max(r, g, b) - Math.min(r, g, b);
+      }
+      const tones = [[9,6,17], [65,55,72], [224,209,176], [255,248,223]];
+      const dotScale = 2;
+      for (let n = 0, i = 0; n < count; n++, i += 4) {
+        if (px[i + 3] < 8) continue;
+        const x = n % layer.width, y = Math.floor(n / layer.width), lum = luminance[n];
+        const left = x > 0 ? luminance[n - 1] : lum;
+        const up = y > 0 ? luminance[n - layer.width] : lum;
+        const hasInkEdge = x > 0 && y > 0 && px[i - 1] > 32 && px[i - layer.width * 4 + 3] > 32
+          && Math.abs(lum - left) + Math.abs(lum - up) > 72;
+        let tone;
+        if (hasInkEdge) {
+          tone = tones[0];
+        } else {
+          const scaled = lum / 255 * 3, lo = Math.floor(scaled), hi = Math.min(3, lo + 1);
+          const bx = Math.floor(x / dotScale) % 4, by = Math.floor(y / dotScale) % 4;
+          const threshold = (bayer[by * 4 + bx] + .5) / 16;
+          tone = tones[(scaled - lo) > threshold ? hi : lo];
+        }
+        let rr = tone[0], gg = tone[1], bb = tone[2];
+        // Только насыщенные участки одежды/макияжа слегка сохраняют исходный цвет.
+        if (!hasInkEdge && chroma[n] > 62 && lum > 58 && lum < 205) {
+          rr = rr * .72 + px[i] * .28; gg = gg * .72 + px[i + 1] * .28; bb = bb * .72 + px[i + 2] * .28;
+        }
+        px[i] = rr; px[i + 1] = gg; px[i + 2] = bb;
+      }
+    }
+    c.putImageData(img, 0, 0);
+    const ms = Math.round((performance.now() - started) * 10) / 10;
+    styleLab.dataset.renderMs = String(ms);
+    styleLab.setAttribute('aria-label', `Лаборатория портрета: ${style}, ${ms} мс`);
   }
 
   // стоп-кадр человека + яркий случайный фон + контур
   function buildLayers(glowColor) {
     const w = window.innerWidth, h = window.innerHeight;
-    // ЯРКИЙ ИГРОВОЙ ФОН (случайный из 8)
+    const previousAnchor = subjectAnchor || { x: w / 2, y: h * 0.34 };
+    const box = segMask.__subject;
+    subjectAnchor = box ? {
+      // Маска ниже зеркалится, поэтому X тоже отражаем.
+      x: w * (1 - ((box.minX + box.maxX) / 2) / segMask.width),
+      y: h * Math.max(0.2, box.minY / segMask.height + 0.12),
+      width: w * (box.maxX - box.minX) / segMask.width
+    } : { x: w / 2, y: h * 0.34, width: w * 0.55 };
+    const textSide = subjectAnchor.x < w * .48 ? 1 : -1;
+    if (popTexts[0]) {
+      popTexts[0].x = Math.max(w * .24, Math.min(w * .76, subjectAnchor.x + textSide * Math.max(92, subjectAnchor.width * .48)));
+      popTexts[0].y = Math.max(82, subjectAnchor.y - 92);
+    }
+    if (popTexts[1]) {
+      popTexts[1].x = textSide > 0 ? w * .72 : w * .28;
+      popTexts[1].y = Math.min(h * .48, subjectAnchor.y + 92);
+    }
+    // Если маска пришла после старта анимации, переносим уже летящие искры к голове.
+    const shiftX = subjectAnchor.x - previousAnchor.x, shiftY = subjectAnchor.y - previousAnchor.y;
+    for (const s of sparkles) { s.x += shiftX; s.y += shiftY; }
+
+    // ЯРКИЙ ИГРОВОЙ ФОН (одна из четырёх режиссированных сцен)
     bgLayer = document.createElement('canvas');
     bgLayer.width = w; bgLayer.height = h;
     const b = bgLayer.getContext('2d');
-    drawBg(b, w, h, BG_KINDS[Math.floor(Math.random() * BG_KINDS.length)]);
+    if (!currentBgKind) currentBgKind = BG_KINDS[Math.floor(Math.random() * BG_KINDS.length)];
+    styleLab.dataset.scene = currentBgKind;
+    drawBg(b, w, h, currentBgKind, subjectAnchor);
 
-    // яркий контур: тройная окантовка (внешняя широкая + средняя + белая кромка)
+    // Зеркальная маска совпадает с уже зеркальным snapshot.
+    const mirroredMask = document.createElement('canvas');
+    mirroredMask.width = w; mirroredMask.height = h;
+    const mm = mirroredMask.getContext('2d');
+    mm.translate(w, 0); mm.scale(-1, 1); mm.drawImage(segMask, 0, 0, w, h);
+
+    // Чёткие расширенные кольца вместо одного мутного shadowBlur.
     glowLayer = document.createElement('canvas');
     glowLayer.width = w; glowLayer.height = h;
     const g = glowLayer.getContext('2d');
-    g.save();
-    g.translate(w, 0); g.scale(-1, 1);
-    g.shadowColor = glowColor;
-    g.shadowBlur = 52;
-    g.globalAlpha = 0.9;
-    g.drawImage(segMask, 0, 0, w, h);
-    g.shadowBlur = 20;
-    g.globalAlpha = 1;
-    g.drawImage(segMask, 0, 0, w, h);
-    g.shadowColor = '#ffffff';
-    g.shadowBlur = 6;
-    g.drawImage(segMask, 0, 0, w, h);
-    g.globalCompositeOperation = 'destination-out';
-    g.shadowBlur = 0;
-    g.drawImage(segMask, 0, 0, w, h);
-    g.restore();
+    const drawRing = (radius, color, alpha, blur = 0) => {
+      const ring = document.createElement('canvas'); ring.width = w; ring.height = h;
+      const r = ring.getContext('2d');
+      const steps = Math.max(18, Math.round(radius * 1.6));
+      for (let i = 0; i < steps; i++) {
+        const a = i / steps * Math.PI * 2;
+        r.drawImage(mirroredMask, Math.cos(a) * radius, Math.sin(a) * radius);
+      }
+      r.globalCompositeOperation = 'destination-out'; r.drawImage(mirroredMask, 0, 0);
+      r.globalCompositeOperation = 'source-in'; r.fillStyle = color; r.fillRect(0, 0, w, h);
+      g.save(); g.globalAlpha = alpha; g.shadowColor = color; g.shadowBlur = blur;
+      g.drawImage(ring, 0, 0); g.restore();
+    };
+    drawRing(25, '#090611', 0.98, 4);
+    drawRing(17, '#fff8df', 1, 0);
+    drawRing(9, glowColor, 1, 2);
+    drawRing(4, '#fff8df', 1, 0);
 
     // СТОП-КАДР ЧЕЛОВЕКА: замороженный кадр, вырезанный маской
     personLayer = document.createElement('canvas');
@@ -488,43 +843,50 @@
     const p = personLayer.getContext('2d');
     p.drawImage(snapshot, 0, 0, w, h);
     p.globalCompositeOperation = 'destination-in';
-    p.save();
-    p.translate(w, 0); p.scale(-1, 1);
-    p.drawImage(segMask, 0, 0, w, h);
-    p.restore();
+    p.drawImage(mirroredMask, 0, 0, w, h);
     p.globalCompositeOperation = 'source-over';
+    stylizePortrait(personLayer, portraitStyle);
+    const firstReveal = !layerRevealAt;
+    layerRevealAt = performance.now();
+    if (firstReveal) popTexts.forEach((pt, i) => { pt.t0 = layerRevealAt + 100 + i * 260; });
     window.__quizDebug.segApplied = true;
   }
 
   function freezeFrame(good) {
     stopFx();
     effect = 'freeze';
+    selectPortraitMode();
     const w = window.innerWidth, h = window.innerHeight;
     snapshot = captureSnapshot();
     video.style.visibility = 'hidden'; // живое видео прячем — остаётся стоп-кадр
     dbgLog('freezeFrame', { good, videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
+    layerRevealAt = 0;
+    currentBgKind = null;
+    subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     // конфетти при победе
     confetti = [];
     if (good) {
-      for (let i = 0; i < 160; i++) {
+      for (let i = 0; i < 96; i++) {
         confetti.push({
           x: Math.random() * w, y: -20 - Math.random() * h * 0.5,
-          r: 5 + Math.random() * 7,
+          r: 7 + Math.random() * 10,
           vx: (Math.random() - 0.5) * 2.5,
           vy: 2 + Math.random() * 4,
           rot: Math.random() * Math.PI,
           vr: (Math.random() - 0.5) * 0.3,
+          z: 0.55 + Math.random() * 0.75,
+          wave: Math.random() * Math.PI * 2,
           color: `hsl(${Math.random() * 360}, 100%, 65%)`
         });
       }
     }
     // японские шоу-эффекты
     flash = { a: 0.85, color: '255,228,96' };
-    rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: 32 };
+    rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: 28 };
     sparkles = [];
-    const hx = w / 2, hy = h * 0.34;
+    const hx = subjectAnchor.x, hy = subjectAnchor.y;
     for (let i = 0; i < 42; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1.5 + Math.random() * 4;
@@ -537,13 +899,12 @@
         t0: performance.now()
       });
     }
-    const shouts = ['СУПЕР!', 'ОГО!', 'КАВАЙИ!', 'Sugoi!', 'ЗАЖИГАЙ!', 'ВАУ!'];
+    const shouts = ['ВЕРНО!', 'БАМ!', 'ОГО!', 'ドン!'];
     const pick = () => shouts[Math.floor(Math.random() * shouts.length)];
     const now0 = performance.now();
     popTexts = [
-      { text: pick(), x: w * 0.5, y: h * 0.3, size: 54, color: '#ffe94d', t0: now0 + 120, life: 1500 },
-      { text: pick(), x: w * 0.2, y: h * 0.2, size: 34, color: '#ffffff', t0: now0 + 420, life: 1300 },
-      { text: pick(), x: w * 0.8, y: h * 0.25, size: 34, color: '#9ef4ff', t0: now0 + 680, life: 1300 }
+      { shape: 'burst', text: pick(), x: w * .5, y: h * .16, size: Math.min(46, w * .115), color: '#ffe34f', t0: now0 + 120, life: 1700 },
+      { shape: 'tag', text: 'NICE ANSWER // 正解', x: w * .22, y: h * .32, size: Math.min(15, w * .038), color: '#19d9ff', t0: now0 + 430, life: 1600 }
     ];
     animateFx(w, h);
   }
@@ -551,11 +912,15 @@
   function startRain() {
     stopFx();
     effect = 'rain';
+    selectPortraitMode();
     const w = window.innerWidth, h = window.innerHeight;
     snapshot = captureSnapshot();
     video.style.visibility = 'hidden';
     dbgLog('startRain', { videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
+    layerRevealAt = 0;
+    currentBgKind = null;
+    subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     rain = [];
     for (let i = 0; i < 220; i++) {
@@ -570,10 +935,11 @@
     flash = { a: 0.5, color: '175,210,255' };
     rays = null;
     sparkles = [];
-    const oops = ['ОЙ-ОЙ!', 'УПС!', 'Zannen…', '💧'];
+    const oops = ['УПС!', 'МИМО!', 'ОЙ!'];
     popTexts = [{
+      shape: 'bubble',
       text: oops[Math.floor(Math.random() * oops.length)],
-      x: w * 0.5, y: h * 0.3, size: 46, color: '#a8c8ff',
+      x: w * 0.5, y: h * 0.3, size: Math.min(42, w * .105), color: '#19d9ff',
       t0: performance.now() + 150, life: 1400
     }];
     animateFx(w, h);
@@ -584,6 +950,9 @@
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     rain = []; confetti = []; sparkles = []; popTexts = [];
     rays = null; flash = null;
+    lastFxTime = 0;
+    layerRevealAt = 0;
+    currentBgKind = null;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     video.style.visibility = '';
     snapshot = null;
@@ -627,27 +996,87 @@
     ctx.font = `900 ${pt.size}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 9;
-    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-    ctx.shadowColor = pt.color;
-    ctx.shadowBlur = 26;
     ctx.globalAlpha = alpha;
+    ctx.lineJoin = 'round';
+    const tw = ctx.measureText(pt.text).width, bw = tw + pt.size * 1.05, bh = pt.size * 1.55;
+    ctx.save(); ctx.translate(8, 9); ctx.fillStyle = '#090611';
+    if (pt.shape === 'burst') {
+      ctx.beginPath();
+      const points = 24;
+      for (let i = 0; i < points; i++) {
+        const a = i / points * Math.PI * 2, rr = i % 2 ? .48 : .68;
+        const x = Math.cos(a) * bw * rr, y = Math.sin(a) * bh * rr;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.closePath(); ctx.fill();
+    } else if (pt.shape === 'bubble') {
+      ctx.beginPath(); ctx.ellipse(0, 0, bw * .52, bh * .52, -.06, 0, Math.PI * 2);
+      ctx.moveTo(-bw * .18, bh * .4); ctx.lineTo(-bw * .42, bh * .72); ctx.lineTo(bw * .03, bh * .48); ctx.fill();
+    } else {
+      ctx.transform(1, 0, -.14, 1, 0, 0); ctx.fillRect(-bw / 2, -bh * .46, bw, bh * .92);
+    }
+    ctx.restore();
+    ctx.fillStyle = pt.shape === 'bubble' ? '#fff8df' : pt.color;
+    ctx.strokeStyle = '#090611'; ctx.lineWidth = Math.max(4, pt.size * .12);
+    if (pt.shape === 'burst') {
+      ctx.beginPath();
+      for (let i = 0; i < 24; i++) {
+        const a = i / 24 * Math.PI * 2, rr = i % 2 ? .48 : .68;
+        const x = Math.cos(a) * bw * rr, y = Math.sin(a) * bh * rr;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (pt.shape === 'bubble') {
+      ctx.beginPath(); ctx.ellipse(0, 0, bw * .52, bh * .52, -.06, 0, Math.PI * 2);
+      ctx.moveTo(-bw * .18, bh * .4); ctx.lineTo(-bw * .42, bh * .72); ctx.lineTo(bw * .03, bh * .48);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.save(); ctx.transform(1, 0, -.14, 1, 0, 0); ctx.fillRect(-bw / 2, -bh * .46, bw, bh * .92); ctx.strokeRect(-bw / 2, -bh * .46, bw, bh * .92); ctx.restore();
+    }
+    ctx.lineWidth = Math.max(5, pt.size * .18); ctx.strokeStyle = '#090611';
     ctx.strokeText(pt.text, 0, 0);
-    ctx.fillStyle = pt.color;
+    ctx.fillStyle = pt.shape === 'tag' ? '#090611' : '#fff8df';
     ctx.fillText(pt.text, 0, 0);
     ctx.restore();
   }
 
-  function animateFx(w, h) {
+  function drawShowChrome(ctx, w, h, mode, now) {
+    const accent = mode === 'freeze' ? '#ffe45e' : '#7ab8ff';
+    const pulse = 0.72 + Math.sin(now / 240) * 0.12;
+    ctx.save();
+    ctx.strokeStyle = accent; ctx.globalAlpha = pulse; ctx.lineWidth = 3;
+    ctx.shadowColor = accent; ctx.shadowBlur = 12;
+    ctx.strokeRect(9, 9, w - 18, h - 18);
+    ctx.shadowBlur = 0; ctx.globalAlpha = 0.9; ctx.lineWidth = 6;
+    const c = 32;
+    for (const [x, y, sx, sy] of [[16,16,1,1],[w-16,16,-1,1],[16,h-16,1,-1],[w-16,h-16,-1,-1]]) {
+      ctx.beginPath(); ctx.moveTo(x + sx * c, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy * c); ctx.stroke();
+    }
+    ctx.font = '900 11px ui-monospace, monospace'; ctx.letterSpacing = '2px';
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.78;
+    ctx.fillText(mode === 'freeze' ? 'QUIZ SHOW  //  NICE!' : 'QUIZ SHOW  //  MISS!', 26, h - 30);
+    ctx.restore();
+  }
+
+  function animateFx(w, h, frameTime = performance.now()) {
     if (!effect) return;
+    const dt = lastFxTime ? Math.min(2, (frameTime - lastFxTime) / 16.667) : 1;
+    lastFxTime = frameTime;
     // страховка: всегда рисуем в CSS-координатах при любом DPR (некоторые браузеры сбрасывают transform)
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    // яркий фон
-    if (bgLayer) ctx.drawImage(bgLayer, 0, 0, w, h);
+    const reveal = layerRevealAt ? Math.max(0, Math.min(1, (frameTime - layerRevealAt) / 220)) : 0;
+    // Фон проявляется коротким печатным ударом, а не включается мгновенно.
+    if (bgLayer) {
+      ctx.globalAlpha = reveal;
+      ctx.drawImage(bgLayer, 0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
     // лучи ЗА головой (под человеком, с внутренним радиусом — не заливают лицо)
     if (effect === 'freeze' && rays) {
-      const cx = w / 2, cy = h * 0.34, R = Math.max(w, h) * 0.8, r0 = 110;
+      const anchor = subjectAnchor || { x: w / 2, y: h * 0.34, width: w * 0.55 };
+      const cx = anchor.x, cy = anchor.y, R = Math.max(w, h) * 0.8;
+      const r0 = Math.max(72, Math.min(130, anchor.width * 0.27));
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(rays.rot);
@@ -655,38 +1084,47 @@
       ctx.shadowBlur = 32;
       for (let i = 0; i < rays.count; i++) {
         const a = (i / rays.count) * Math.PI * 2;
-        ctx.fillStyle = 'rgba(255,238,140,0.5)';
+        ctx.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.24)' : 'rgba(255,226,92,0.42)';
         ctx.beginPath();
         ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
-        ctx.arc(0, 0, R, a, a + 0.1);
-        ctx.lineTo(Math.cos(a + 0.1) * r0, Math.sin(a + 0.1) * r0);
+        const width = i % 2 ? 0.075 : 0.12;
+        ctx.arc(0, 0, R, a, a + width);
+        ctx.lineTo(Math.cos(a + width) * r0, Math.sin(a + width) * r0);
         ctx.closePath();
         ctx.fill();
       }
       ctx.restore();
-      rays.rot += rays.speed;
+      rays.rot += rays.speed * dt;
     }
     // человек + контур (когда маска готова)
     if (personLayer && glowLayer) {
       window.__quizDebug.layersUsed = true;
-      ctx.drawImage(personLayer, 0, 0, w, h);
+      const pop = 0.94 + easeOutBack(reveal) * 0.06;
+      const anchor = subjectAnchor || { x: w / 2, y: h * .34 };
+      ctx.save(); ctx.translate(anchor.x, anchor.y); ctx.scale(pop, pop); ctx.translate(-anchor.x, -anchor.y);
+      ctx.drawImage(personLayer, 0, 0, w, h); ctx.restore();
       const pulse = 0.8 + 0.2 * Math.sin(performance.now() / 260);
-      ctx.globalAlpha = pulse;
+      ctx.globalAlpha = pulse * reveal;
       ctx.drawImage(glowLayer, 0, 0, w, h);
       ctx.globalAlpha = 1;
     } else if (snapshot) {
       // маска ещё не готова — обычный стоп-кадр
       ctx.drawImage(snapshot, 0, 0, w, h);
     }
-    if (effect === 'freeze') {
+    if (effect === 'freeze' && reveal > .65) {
       // конфетти
       for (const c of confetti) {
-        c.x += c.vx; c.y += c.vy; c.rot += c.vr;
+        c.wave += 0.045 * dt;
+        c.x += (c.vx + Math.sin(c.wave) * 0.8) * dt; c.y += c.vy * c.z * dt; c.rot += c.vr * dt;
         if (c.y > h + 20) { c.y = -20; c.x = Math.random() * w; }
         ctx.save();
-        ctx.translate(c.x, c.y); ctx.rotate(c.rot);
+        ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.scale(c.z, Math.cos(c.wave) * c.z);
         ctx.fillStyle = c.color;
-        ctx.fillRect(-c.r / 2, -c.r / 2, c.r, c.r * 0.6);
+        ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.moveTo(-c.r * .65, -c.r * .3); ctx.quadraticCurveTo(0, -c.r * .7, c.r * .65, -c.r * .25);
+        ctx.lineTo(c.r * .55, c.r * .3); ctx.quadraticCurveTo(0, 0, -c.r * .55, c.r * .35); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = .45; ctx.fillStyle = '#fff'; ctx.fillRect(-c.r * .4, -1, c.r * .8, 2);
         ctx.restore();
       }
       // искры-звёзды
@@ -695,7 +1133,7 @@
         const age = now - s.t0;
         if (age > s.ttl) continue;
         const k = 1 - age / s.ttl;
-        s.x += s.vx; s.y += s.vy; s.vy += 0.05; s.rot += s.vr;
+        s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 0.05 * dt; s.rot += s.vr * dt;
         drawSparkle(ctx, s.x, s.y, s.size * (0.55 + 0.55 * k), s.rot, Math.sin(age / 90) * 1.25 * k);
       }
       // слэм-тексты
@@ -706,7 +1144,7 @@
       ctx.lineWidth = 2.2;
       ctx.beginPath();
       for (const d of rain) {
-        d.x += d.vx; d.y += d.vy;
+        d.x += d.vx * dt; d.y += d.vy * dt;
         if (d.y > h + 20) { d.y = -20; d.x = Math.random() * w; }
         ctx.moveTo(d.x, d.y);
         ctx.lineTo(d.x + d.vx * 3, d.y + d.len);
@@ -715,6 +1153,7 @@
       // слэм-текст
       for (const pt of popTexts) drawPopText(ctx, pt, performance.now());
     }
+    drawShowChrome(ctx, w, h, effect, performance.now());
     // вспышка экрана (поверх всего)
     if (flash) {
       ctx.fillStyle = `rgba(${flash.color},${flash.a})`;
@@ -726,7 +1165,7 @@
     if (effect === 'rain' && !flash && Math.random() < 0.01) {
       flash = { a: 0.42, color: '195,215,255' };
     }
-    raf = requestAnimationFrame(() => animateFx(w, h));
+    raf = requestAnimationFrame(t => animateFx(w, h, t));
   }
 
   // ---------- Игра ----------
@@ -762,6 +1201,7 @@
     if (correct) {
       btn.classList.add('correct');
       score++;
+      document.getElementById('score').innerHTML = `Счёт: <b>${score}</b>/${QUESTIONS.length}`;
       dbgLog('answer', { i, correct: 1 });
       beep(880, 0.18, 'sine', 0.2);
       showOverlay(winOverlay, 1000);
@@ -809,17 +1249,60 @@
     if (win) freezeFrame(true); else startRain();
   }
 
-  // фото текущего стоп-кадра (фон + человек + контур) в ленту раунда
+  // Забираем именно тот шоу-кадр, который видит пользователь: вместе с лучами,
+  // конфетти, дождём, искрами, слэм-текстами и вспышками.
+  function drawCurrentVisual(target, w, h) {
+    if (effect && canvas.width && canvas.height) {
+      target.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
+      return;
+    }
+    if (bgLayer) target.drawImage(bgLayer, 0, 0, w, h);
+    if (personLayer) target.drawImage(personLayer, 0, 0, w, h);
+    if (glowLayer) target.drawImage(glowLayer, 0, 0, w, h);
+    else if (snapshot) target.drawImage(snapshot, 0, 0, w, h);
+  }
+
+  function drawPosterVisual(target, w, h) {
+    if (!bgLayer || !personLayer) { drawCurrentVisual(target, w, h); return; }
+    target.drawImage(bgLayer, 0, 0, w, h);
+    const anchor = subjectAnchor || { x: w / 2, y: h * .34, width: w * .55 };
+    if (effect === 'freeze') {
+      target.save(); target.translate(anchor.x, anchor.y);
+      const R = Math.max(w, h) * .78, r0 = Math.max(72, Math.min(130, anchor.width * .27));
+      for (let i = 0; i < 24; i++) {
+        const a = i / 24 * Math.PI * 2 + (rays ? rays.rot : 0), aw = i % 2 ? .07 : .11;
+        target.fillStyle = i % 3 ? 'rgba(255,227,79,.34)' : 'rgba(255,255,255,.2)';
+        target.beginPath(); target.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+        target.arc(0, 0, R, a, a + aw); target.lineTo(Math.cos(a + aw) * r0, Math.sin(a + aw) * r0); target.fill();
+      }
+      target.restore();
+    }
+    target.drawImage(personLayer, 0, 0, w, h);
+    target.drawImage(glowLayer, 0, 0, w, h);
+    if (effect === 'freeze') {
+      for (const c of confetti.slice(0, 30)) {
+        target.save(); target.translate(c.x, c.y); target.rotate(c.rot); target.scale(c.z, .7 * c.z);
+        target.fillStyle = c.color; target.strokeStyle = '#090611'; target.lineWidth = 1.5;
+        target.beginPath(); target.moveTo(-c.r * .6, -c.r * .3); target.quadraticCurveTo(0, -c.r * .7, c.r * .6, -c.r * .25);
+        target.lineTo(c.r * .5, c.r * .3); target.quadraticCurveTo(0, 0, -c.r * .5, c.r * .35); target.closePath(); target.fill(); target.stroke(); target.restore();
+      }
+    } else {
+      target.save(); target.strokeStyle = 'rgba(80,136,210,.58)'; target.lineWidth = 2;
+      for (const d of rain.slice(0, 90)) { target.beginPath(); target.moveTo(d.x, d.y); target.lineTo(d.x + d.vx * 3, d.y + d.len); target.stroke(); }
+      target.restore();
+    }
+    for (const pt of popTexts) drawPopText(target, pt, pt.t0 + pt.life * .42);
+    drawShowChrome(target, w, h, effect, 0);
+  }
+
+  // Полный шоу-кадр текущего ответа в ленту раунда.
   function captureRoundShot() {
     const w = window.innerWidth, h = window.innerHeight;
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     const x = c.getContext('2d');
-    if (bgLayer) x.drawImage(bgLayer, 0, 0, w, h);
-    if (personLayer) x.drawImage(personLayer, 0, 0, w, h);
-    if (glowLayer) x.drawImage(glowLayer, 0, 0, w, h);
-    else if (snapshot) x.drawImage(snapshot, 0, 0, w, h);
-    roundShots.push(c.toDataURL('image/jpeg', 0.85));
+    drawPosterVisual(x, w, h);
+    roundShots.push(c.toDataURL('image/jpeg', 0.9));
   }
 
   function renderRoundStrip() {
@@ -844,6 +1327,7 @@
 
   function startGame() {
     score = 0; qIndex = 0;
+    if (!portraitStyleLocked) preparePortraitModes();
     roundShots = [];
     document.getElementById('roundStrip').classList.add('hidden');
     stopFx();
@@ -871,10 +1355,12 @@
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     const x = c.getContext('2d');
-    if (bgLayer) x.drawImage(bgLayer, 0, 0, w, h);
-    if (personLayer) x.drawImage(personLayer, 0, 0, w, h);
-    if (glowLayer) x.drawImage(glowLayer, 0, 0, w, h);
-    else if (snapshot) x.drawImage(snapshot, 0, 0, w, h);
+    drawPosterVisual(x, w, h);
+    // Нижняя плашка удерживает подпись читаемой на любом случайном фоне.
+    const plate = x.createLinearGradient(0, h - 155, 0, h);
+    plate.addColorStop(0, 'rgba(4,2,14,0)');
+    plate.addColorStop(1, 'rgba(4,2,14,0.88)');
+    x.fillStyle = plate; x.fillRect(0, h - 155, w, 155);
     // счёт поверх
     const win = score >= WIN_SCORE;
     const label = win ? `🏆 ${score}/${QUESTIONS.length}` : `🌧 ${score}/${QUESTIONS.length}`;
