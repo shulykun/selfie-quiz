@@ -22,7 +22,7 @@
 ## Поток выполнения
 
 ```
-startScreen ──▶ initSelfieSeg() ──▶ MODEL READY ──▶ startCamera() ──▶ startGame()
+startScreen ──▶ PLAY ──▶ initSelfieSeg() ──▶ MODEL READY ──▶ startCamera() ──▶ startGame()
       │                                  │
       ▼                                  ▼
   6× renderQuestion() ◀─── nextBtn ── answer(i)
@@ -70,7 +70,7 @@ halftone, жёсткие смещённые тени и адаптивный ф�
 
 ## Сегментация (MediaPipe Tasks)
 
-Модель начинает загружаться сразу на стартовом экране. `#startBtn` остаётся disabled до `segState: ready`; при ошибке становится кнопкой повторной загрузки. Доступ к камере запрашивается только после готовности модели.
+Модель начинает загружаться только после нажатия `Играть`. На время loading-state `#startBtn` блокируется; при ошибке становится кнопкой повторной загрузки. Доступ к камере запрашивается только после готовности модели.
 
 ```
 initSelfieSeg()
