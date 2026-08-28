@@ -101,6 +101,14 @@
     height:118px; width:auto; border-radius:10px;
     border:2px solid rgba(255,255,255,.25); flex-shrink:0; cursor:pointer;
   }
+  .round-shot { flex:0 0 auto; display:flex; flex-direction:column; align-items:stretch; }
+  .round-shot .result-badge {
+    margin:7px 0 0 5px; padding:6px 9px; align-self:flex-start;
+    border:3px solid #090611; box-shadow:3px 3px 0 #090611;
+    font:1000 10px/1 ui-monospace,monospace; letter-spacing:.8px;
+  }
+  .round-shot.correct .result-badge { color:#090611; background:#ffe34f; }
+  .round-shot.wrong .result-badge { color:#fff8df; background:#e5484d; }
   .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
   .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
@@ -1548,25 +1556,31 @@
     c.width = w; c.height = h;
     const x = c.getContext('2d');
     drawPosterVisual(x, w, h);
-    roundShots.push(c.toDataURL('image/jpeg', 0.9));
+    roundShots.push({ src: c.toDataURL('image/jpeg', 0.9), correct: effect === 'freeze' });
   }
 
   function renderRoundStrip() {
     const strip = document.getElementById('roundStrip');
     strip.innerHTML = '';
-    roundShots.forEach((src, idx) => {
+    roundShots.forEach((shot, idx) => {
+      const card = document.createElement('div');
+      card.className = `round-shot ${shot.correct ? 'correct' : 'wrong'}`;
       const img = document.createElement('img');
-      img.src = src;
-      img.alt = `Стоп-кадр ${idx + 1}`;
+      img.src = shot.src;
+      img.alt = `Стоп-кадр ${idx + 1}: ${shot.correct ? 'верный' : 'неверный'} ответ`;
       img.onclick = () => {
         const a = document.createElement('a');
-        a.href = src;
+        a.href = shot.src;
         a.download = `selfie-quiz-${idx + 1}.jpg`;
         document.body.appendChild(a);
         a.click();
         a.remove();
       };
-      strip.appendChild(img);
+      const badge = document.createElement('div');
+      badge.className = 'result-badge';
+      badge.textContent = shot.correct ? '✓ ВЕРНО' : '✕ МИМО';
+      card.append(img, badge);
+      strip.appendChild(card);
     });
     strip.classList.remove('hidden');
   }

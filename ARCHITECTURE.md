@@ -116,7 +116,7 @@ snapshot                     — замороженный кадр с crop `cove
 segMask                      — маска человека (canvas RGBA)
 subjectAnchor                — вычисленный по маске центр верхней части силуэта
 bgLayer / personLayer / glowLayer — пре-рендеренные слои (строятся один раз на ответ)
-roundShots[]                 — dataURL стоп-кадров раунда (лента на финале)
+roundShots[]                 — `{ src, correct }` для стоп-кадров и бейджей результата в финальной ленте
 window.__quizDebug           — отладочные хуки: segState, logs[], segApplied, layersUsed
 ```
 
