@@ -22,7 +22,7 @@
 ## Поток выполнения
 
 ```
-startScreen ──▶ startCamera() ──▶ initSelfieSeg() (фоновая загрузка модели)
+startScreen ──▶ initSelfieSeg() ──▶ MODEL READY ──▶ startCamera() ──▶ startGame()
       │                                  │
       ▼                                  ▼
   6× renderQuestion() ◀─── nextBtn ── answer(i)
@@ -69,6 +69,8 @@ halftone, жёсткие смещённые тени и адаптивный ф�
 Пока маска не готова — рисуется `snapshot` (обычный стоп-кадр), затем слои «проявляются».
 
 ## Сегментация (MediaPipe Tasks)
+
+Модель начинает загружаться сразу на стартовом экране. `#startBtn` остаётся disabled до `segState: ready`; при ошибке становится кнопкой повторной загрузки. Доступ к камере запрашивается только после готовности модели.
 
 ```
 initSelfieSeg()

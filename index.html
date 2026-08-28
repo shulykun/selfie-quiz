@@ -83,6 +83,9 @@
     background:linear-gradient(90deg,#ffd93d,#ff9a3d); box-shadow:0 6px 22px rgba(255,180,60,.3);
   }
   .btn.next:disabled { opacity:.5; }
+  #startBtn:disabled { cursor:wait; color:#5d594d; box-shadow:none; background:linear-gradient(90deg,#d9d4c3,#b8c3ca); }
+  #startBtn.model-error { cursor:pointer; color:#fff8df; background:#9e3040; }
+  #modelHint { min-height:20px; margin-top:10px; font:800 11px/1.35 ui-monospace,monospace; letter-spacing:.7px; color:#dce9f2; }
   .endBtns { display:flex; gap:10px; margin-top:18px; }
   .endBtns .btn { margin-top:0; }
   .btn.secondary {
@@ -254,7 +257,8 @@
 <div id="startScreen">
   <div class="h1">📸 Селфи-квиз</div>
   <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — яркий manga-burst ✦<br>Мимо — новая драматичная сцена каждый раз</div>
-  <button class="btn" id="startBtn">▶ Начать игру</button>
+  <button class="btn" id="startBtn" disabled>◌ Загружаем модель…</button>
+  <div id="modelHint">Подготавливаем визуальные эффекты</div>
 </div>
 
 <div id="endScreen" class="hidden">
@@ -299,6 +303,8 @@
   const nextBtn = document.getElementById('nextBtn');
   const camOffBtn = document.getElementById('camOff');
   const shareBtn = document.getElementById('shareBtn');
+  const startBtn = document.getElementById('startBtn');
+  const modelHint = document.getElementById('modelHint');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
   const styleLab = document.getElementById('styleLab');
@@ -368,6 +374,7 @@
   let failureBag = [];
   let snapshot = null; // замороженный кадр (offscreen canvas)
   let segmenter = null; // MediaPipe Tasks ImageSegmenter
+  let modelInitPromise = null;
   let segMask = null;   // маска человека (canvas)
   let personLayer = null; // стоп-кадр человека, вырезанный маской
   let bgLayer = null;   // яркий игровой фон (случайный)
@@ -448,8 +455,29 @@
     return s;
   }
 
-  async function initSelfieSeg() {
-    try {
+  function setStartModelState(state) {
+    startBtn.classList.toggle('model-error', state === 'error');
+    if (state === 'loading') {
+      startBtn.disabled = true;
+      startBtn.textContent = '◌ Загружаем модель…';
+      modelHint.textContent = 'Подготавливаем визуальные эффекты';
+    } else if (state === 'ready') {
+      startBtn.disabled = false;
+      startBtn.textContent = '▶ Начать игру';
+      modelHint.textContent = 'MODEL READY // эффекты готовы';
+    } else {
+      startBtn.disabled = false;
+      startBtn.textContent = '↻ Повторить загрузку';
+      modelHint.textContent = 'Модель не загрузилась — без неё игра не начнётся';
+    }
+  }
+
+  function initSelfieSeg(force = false) {
+    if (segmenter && !force) return Promise.resolve(segmenter);
+    if (modelInitPromise && !force) return modelInitPromise;
+    setStartModelState('loading');
+    modelInitPromise = (async () => {
+      try {
       window.__quizDebug.segState = 'loading';
       setAiStatus('AI: загрузка модели…');
       // Версия в URL не даёт браузеру переиспользовать старый MIME/модуль после деплоя.
@@ -461,13 +489,20 @@
         outputCategoryMask: true
       });
       window.__quizDebug.segState = 'ready';
+      setStartModelState('ready');
       setAiStatus('AI: готово ✓');
       if (!portraitLabEnabled) setTimeout(() => setAiStatus('', false), 1100);
+      return segmenter;
     } catch (e) {
       window.__quizDebug.segState = 'init-error';
       window.__quizDebug.segError = String(e);
+      modelInitPromise = null;
+      setStartModelState('error');
       setAiStatus('AI: недоступно');
+      return null;
     }
+    })();
+    return modelInitPromise;
   }
 
   // один раз гоняем кадр через MediaPipe → маска человека (canvas)
@@ -1503,14 +1538,20 @@
   }
 
   // ---------- Старт ----------
-  document.getElementById('startBtn').onclick = async () => {
-    const ok = await startCamera();
-    startScreen.classList.add('hidden');
-    if (!ok) {
-      // без камеры всё равно можно играть — эффекты на чёрном фоне
-      video.style.background = 'linear-gradient(180deg,#1a1a2e,#16213e)';
+  startBtn.onclick = async () => {
+    if (!segmenter) {
+      await initSelfieSeg(true);
+      return;
     }
-    initSelfieSeg();
+    startBtn.disabled = true;
+    startBtn.textContent = '◌ Включаем камеру…';
+    const ok = await startCamera();
+    if (!ok) {
+      setStartModelState('ready');
+      modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
+      return;
+    }
+    startScreen.classList.add('hidden');
     startGame();
   };
   document.getElementById('againBtn').onclick = () => startGame();
@@ -1574,6 +1615,9 @@
     }
   };
   camOffBtn.onclick = () => { stopCamera(); camOffBtn.textContent = camOffBtn.textContent.includes('🚫') ? '📷 Камера' : '🚫 Камера'; };
+
+  // Предзагрузка начинается сразу; кнопка старта откроется только после готовности модели.
+  initSelfieSeg();
 
 })();
 </script>
