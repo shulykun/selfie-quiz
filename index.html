@@ -552,8 +552,8 @@
     if (!res) return;
     if (res.mask && (effect === 'freeze' || effect === 'rain')) {
       segMask = res.mask;
-      // победа — золотой контур, поражение — голубой
-      buildLayers(effect === 'freeze' ? '#ffe34f' : '#19d9ff');
+      // победа — золотой контур, поражение — холодный приглушённый
+      buildLayers(effect === 'freeze' ? '#ffe34f' : '#52677f');
       hideSegError();
     } else if (res.error) {
       showSegError(res.error);
@@ -940,16 +940,20 @@
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     rain = [];
-    for (let i = 0; i < 220; i++) {
+    for (let i = 0; i < 150; i++) {
       rain.push({
         x: Math.random() * w, y: Math.random() * h,
-        len: 12 + Math.random() * 18,
-        vy: 9 + Math.random() * 8,
-        vx: -1.5 - Math.random() * 2
+        len: 18 + Math.random() * 54,
+        vy: 12 + Math.random() * 15,
+        vx: -3 - Math.random() * 4,
+        width: .8 + Math.random() * 3.6,
+        alpha: .22 + Math.random() * .58,
+        depth: Math.random(),
+        splash: Math.random() < .16
       });
     }
-    // дождь + лёгкая гроза
-    flash = { a: 0.46, color: '175,210,255', decay: 0.86 };
+    // Короткая холодная вспышка, затем кадр остаётся мрачным.
+    flash = { a: 0.26, color: '190,210,225', decay: 0.78 };
     rays = null;
     sparkles = [];
     const oops = ['УПС!', 'МИМО!', 'ОЙ!'];
@@ -1101,6 +1105,45 @@
     ctx.restore();
   }
 
+  function drawFailureGrade(ctx, w, h) {
+    ctx.save();
+    // Холодная печатная заливка гасит праздничные цвета сцены и портрета.
+    ctx.globalCompositeOperation = 'multiply';
+    const wash = ctx.createLinearGradient(0, 0, w, h);
+    wash.addColorStop(0, 'rgba(16,24,40,.48)');
+    wash.addColorStop(.55, 'rgba(31,43,61,.34)');
+    wash.addColorStop(1, 'rgba(7,10,20,.62)');
+    ctx.fillStyle = wash; ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    const vignette = ctx.createRadialGradient(w * .5, h * .38, Math.min(w,h) * .12, w * .5, h * .42, Math.max(w,h) * .72);
+    vignette.addColorStop(0, 'rgba(3,7,16,0)');
+    vignette.addColorStop(.62, 'rgba(3,7,16,.16)');
+    vignette.addColorStop(1, 'rgba(3,7,16,.72)');
+    ctx.fillStyle = vignette; ctx.fillRect(0, 0, w, h);
+    // Верхняя manga-плашка делает смену эмоционального режима очевидной.
+    ctx.fillStyle = 'rgba(5,8,16,.72)'; ctx.fillRect(0, 0, w, Math.max(58, h * .08));
+    ctx.restore();
+  }
+
+  function drawFailureRain(ctx, w, h, dt) {
+    ctx.save();
+    ctx.lineCap = 'square';
+    for (const d of rain) {
+      d.x += d.vx * dt; d.y += d.vy * dt;
+      if (d.y > h + d.len) { d.y = -d.len; d.x = Math.random() * (w + 100); }
+      ctx.strokeStyle = `rgba(${d.depth > .72 ? '214,226,238' : '92,119,151'},${d.alpha})`;
+      ctx.lineWidth = d.width;
+      ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.vx * 2.8, d.y + d.len); ctx.stroke();
+      if (d.splash && d.y > h * .68) {
+        ctx.globalAlpha = d.alpha * .7;
+        ctx.beginPath();
+        ctx.moveTo(d.x - 9, d.y); ctx.lineTo(d.x, d.y - 5); ctx.lineTo(d.x + 8, d.y + 1);
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
+    }
+    ctx.restore();
+  }
+
   function animateFx(w, h, frameTime = performance.now()) {
     if (!effect) return;
     const dt = lastFxTime ? Math.min(2, (frameTime - lastFxTime) / 16.667) : 1;
@@ -1189,17 +1232,8 @@
         drawPopText(ctx, pt, now > pt.t0 + pt.life ? holdTime : now);
       }
     } else if (effect === 'rain') {
-      // дождь
-      ctx.strokeStyle = 'rgba(175,205,255,0.85)';
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      for (const d of rain) {
-        d.x += d.vx * dt; d.y += d.vy * dt;
-        if (d.y > h + 20) { d.y = -20; d.x = Math.random() * w; }
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x + d.vx * 3, d.y + d.len);
-      }
-      ctx.stroke();
+      drawFailureGrade(ctx, w, h);
+      drawFailureRain(ctx, w, h, dt);
       // слэм-текст
       for (const pt of popTexts) {
         const now = performance.now(), holdTime = pt.t0 + pt.life * .48;
@@ -1215,8 +1249,8 @@
       if (flash.a < 0.01) flash = null;
     }
     // гроза при дожде: случайные вспышки
-    if (effect === 'rain' && !flash && Math.random() < 0.01) {
-      flash = { a: 0.42, color: '195,215,255', decay: 0.82 };
+    if (effect === 'rain' && !flash && Math.random() < 0.0035) {
+      flash = { a: 0.20, color: '185,205,225', decay: 0.74 };
     }
     raf = requestAnimationFrame(t => animateFx(w, h, t));
   }
@@ -1338,8 +1372,13 @@
         drawImpactParticle(target, c, x, y, .9);
       }
     } else {
-      target.save(); target.strokeStyle = 'rgba(80,136,210,.58)'; target.lineWidth = 2;
-      for (const d of rain.slice(0, 90)) { target.beginPath(); target.moveTo(d.x, d.y); target.lineTo(d.x + d.vx * 3, d.y + d.len); target.stroke(); }
+      drawFailureGrade(target, w, h);
+      target.save(); target.lineCap = 'square';
+      for (const d of rain.slice(0, 90)) {
+        target.strokeStyle = `rgba(112,139,168,${Math.min(.72, d.alpha)})`;
+        target.lineWidth = d.width;
+        target.beginPath(); target.moveTo(d.x, d.y); target.lineTo(d.x + d.vx * 2.8, d.y + d.len); target.stroke();
+      }
       target.restore();
     }
     for (const pt of popTexts) drawPopText(target, pt, pt.t0 + pt.life * .42);
