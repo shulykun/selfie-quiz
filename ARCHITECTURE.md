@@ -3,7 +3,8 @@
 ## Суть проекта
 
 Веб-квиз (один HTML-файл, vanilla JS), где пользователь отвечает на вопросы
-**перед селфи-камерой в реальном времени**. В момент ответа кадр замораживается,
+**перед селфи-камерой в реальном времени**. После ответа проходит pose-countdown,
+и только на `ЩЁЛК!` кадр замораживается,
 модель сегментации отделяет человека от фона, и на стоп-кадр накладываются
 яркие игровые эффекты в стиле японских шоу: неоновая окантовка силуэта, лучи
 за головой, комиксный impact burst, искры, слэм-тексты.
@@ -28,7 +29,7 @@ startScreen ──▶ PLAY ──▶ initSelfieSeg() ──▶ MODEL READY ─�
   6× renderQuestion() ◀─── nextBtn ── answer(i)
       │                                  │
       ▼                                  ▼
-  freezeFrame(good) / startRain()   captureRoundShot() → roundShots[]
+  runPoseCountdown() → freezeFrame(good) / startRain() → captureRoundShot()
       │                                  │
       ▼                                  ▼
   makeMask() ──▶ buildLayers()      finish() → renderRoundStrip() (лента фото)
@@ -79,7 +80,7 @@ initSelfieSeg()
   └─ ImageSegmenter.createFromOptions({ modelAssetPath: '.../selfie_segmenter.tflite',
                                         runningMode: 'IMAGE', outputCategoryMask: true })
 
-makeMask()  — вызывается при каждом ответе
+makeMask()  — вызывается на `ЩЁЛК!` после pose-countdown
   ├─ canvas-кадр из текущего видео (video-элемент в segment() нестабилен → рисуем в canvas)
   ├─ segmenter.segment(canvas)
   ├─ categoryMask.getAsUint8Array()

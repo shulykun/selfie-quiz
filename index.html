@@ -117,6 +117,23 @@
     box-shadow:0 6px 24px rgba(0,0,0,.4); display:none; max-width:90%;
   }
   #segError.show { display:block; }
+  #poseCue {
+    position:fixed; inset:0; z-index:4; display:none; place-items:center;
+    pointer-events:none; text-align:center;
+  }
+  #poseCue.show { display:grid; }
+  #poseCue .cue {
+    min-width:132px; padding:14px 24px; color:#090611; background:#fff8df;
+    border:6px solid #090611; box-shadow:8px 8px 0 #090611;
+    font:1000 clamp(46px,14vw,92px)/.88 Impact,Arial Black,sans-serif;
+    letter-spacing:-2px; transform:rotate(-3deg);
+  }
+  #poseCue.good .cue { background:#ffe34f; }
+  #poseCue.bad .cue { color:#fff8df; background:#e5484d; }
+  #poseCue.count .cue { min-width:104px; border-radius:50%; transform:rotate(2deg); }
+  #poseCue.snap .cue { color:#fff8df; background:#090611; border-color:#fff8df; box-shadow:8px 8px 0 #e5484d; }
+  #poseCue.bump .cue { animation:pose-bump .28s cubic-bezier(.16,1.3,.35,1) both; }
+  @keyframes pose-bump { from { opacity:0; transform:scale(.45) rotate(-8deg); } to { opacity:1; transform:scale(1) rotate(-3deg); } }
   #styleLab {
     position:fixed; top:max(58px, calc(env(safe-area-inset-top) + 48px)); left:50%;
     transform:translateX(-50%); z-index:10; display:none; gap:4px; padding:4px;
@@ -253,6 +270,7 @@
 
 <div id="winOverlay" class="flash"><div><div class="big">✓ ВЕРНО!</div><div class="sub">Стоп-кадр. Отличный ответ.</div></div></div>
 <div id="loseOverlay" class="flash"><div><div class="big">🌧 ПОРАЖЕНИЕ</div><div class="sub">Дождь идёт по тебе…</div></div></div>
+<div id="poseCue" aria-live="assertive"><div class="cue"></div></div>
 
 <div id="startScreen">
   <div class="h1">📸 Селфи-квиз</div>
@@ -300,6 +318,7 @@
   const endScreen = document.getElementById('endScreen');
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
+  const poseCue = document.getElementById('poseCue');
   const nextBtn = document.getElementById('nextBtn');
   const camOffBtn = document.getElementById('camOff');
   const shareBtn = document.getElementById('shareBtn');
@@ -437,6 +456,31 @@
       o.connect(g); g.connect(ac.destination);
       o.start(); o.stop(ac.currentTime + dur);
     } catch (e) {}
+  }
+
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  function showPoseCue(text, tone) {
+    poseCue.className = `show ${tone}`;
+    poseCue.querySelector('.cue').textContent = text;
+    void poseCue.offsetWidth;
+    poseCue.classList.add('bump');
+  }
+
+  function hidePoseCue() { poseCue.className = ''; }
+
+  async function runPoseCountdown(correct) {
+    showPoseCue(correct ? 'ВЕРНО!' : 'МИМО!', correct ? 'good' : 'bad');
+    await wait(480);
+    showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
+    await wait(620);
+    showPoseCue('1', 'count'); beep(560, .08, 'square', .09);
+    await wait(620);
+    showPoseCue('ЩЁЛК!', 'snap'); beep(1050, .07, 'square', .12);
+    // Стоп-кадр создаётся именно здесь: до этого камера остаётся живой для позирования.
+    if (correct) freezeFrame(true); else startRain();
+    await wait(260);
+    hidePoseCue();
   }
 
   // ---------- Эффекты ----------
@@ -1386,6 +1430,7 @@
     order.forEach(({ t, i }) => {
       const b = document.createElement('button');
       b.className = 'ans';
+      b.dataset.answerIndex = i;
       b.textContent = t;
       b.onclick = () => answer(i, b);
       wrap.appendChild(b);
@@ -1396,7 +1441,7 @@
     locked = false;
   }
 
-  function answer(i, btn) {
+  async function answer(i, btn) {
     if (locked) return;
     locked = true;
     const q = QUESTIONS[qIndex];
@@ -1409,14 +1454,14 @@
       document.getElementById('score').innerHTML = `Счёт: <b>${score}</b>/${QUESTIONS.length}`;
       dbgLog('answer', { i, correct: 1 });
       beep(880, 0.18, 'sine', 0.2);
-      freezeFrame(true);
     } else {
-      buttons[q.c].classList.add('correct');
+      const correctBtn = buttons.find(b => Number(b.dataset.answerIndex) === q.c);
+      if (correctBtn) correctBtn.classList.add('correct');
       btn.classList.add('wrong');
       dbgLog('answer', { i, correct: 0 });
       beep(180, 0.35, 'sawtooth', 0.15);
-      startRain();
     }
+    await runPoseCountdown(correct);
     // переход — по кнопке, не автоматом
     nextBtn.textContent = (qIndex >= QUESTIONS.length - 1) ? 'Узнать результат 🏁' : 'Дальше →';
     nextBtn.classList.remove('hidden');
