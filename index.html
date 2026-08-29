@@ -66,13 +66,23 @@
   }
   #loseOverlay .big { font-size:40px; font-weight:900; text-shadow:0 4px 20px rgba(0,0,0,.7); text-align:center; line-height:1.2; }
   #loseOverlay .sub { font-size:16px; opacity:.9; font-weight:600; margin-top:6px; }
-  #verdictOverlay {
-    background:linear-gradient(160deg, rgba(255,59,79,.92), rgba(255,227,79,.95));
-    display:flex; align-items:center; justify-content:center; z-index:3;
-    transition:opacity .25s ease; color:var(--ink);
+  #judgeLoader {
+    background:rgba(9,6,17,.9); display:flex; align-items:center; justify-content:center; z-index:7;
+    transition:opacity .2s ease;
   }
-  #verdictOverlay .big { font-size:44px; font-weight:900; text-shadow:0 4px 20px rgba(0,0,0,.35); text-align:center; line-height:1.15; }
-  #verdictOverlay .sub { font-size:16px; font-weight:800; margin-top:10px; padding:0 18px; text-align:center; line-height:1.35; }
+  #judgeLoader .loaderBox { text-align:center; color:var(--paper); padding:0 20px; }
+  #judgeLoader .spinner {
+    width:54px; height:54px; margin:0 auto 16px; border:6px solid var(--paper);
+    border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #judgeLoader .loaderText { font-size:15px; font-weight:900; text-transform:uppercase; letter-spacing:1.5px; }
+  #scoreBlock { margin-top:10px; padding-top:10px; border-top:3px dashed rgba(9,6,17,.3); text-align:center; }
+  #scoreBig {
+    font:1000 clamp(56px,16vw,110px)/.9 Impact,Arial Black,sans-serif; color:var(--yellow);
+    -webkit-text-stroke:5px var(--ink); paint-order:stroke fill; letter-spacing:-2px; margin-bottom:4px;
+  }
+  #verdictText { margin-top:8px; padding:8px 10px; border:3px solid var(--ink); background:#fff; border-radius:4px; font-size:14px; font-weight:800; line-height:1.35; text-align:left; }
   .show { opacity:1 !important; }
 
   #startScreen, #endScreen {
@@ -273,7 +283,6 @@
   #answerText { font-size:15px; font-weight:800; line-height:1.35; padding:8px 10px; margin-bottom:6px; border:3px solid var(--ink); background:#fff; border-radius:4px; }
   #answerInput { width:100%; box-sizing:border-box; padding:9px 10px; font-size:14px; font-weight:700; border:3px solid var(--ink); border-radius:4px; background:#fff; color:var(--ink); font-family:inherit; }
   .openBtns { display:flex; gap:8px; flex-wrap:wrap; }
-  #verdictOverlay .big { font-size:clamp(28px,8vw,52px); }
 </style>
 </head>
 <body>
@@ -305,7 +314,7 @@
     <div id="openNum">Ситуация 1 из 5</div>
     <div id="situationText">…</div>
     <button id="ttsBtn" class="btn small secondary">🔊 Озвучить ещё</button>
-    <div class="openAnswerBox">
+    <div class="openAnswerBox" id="openAnswerBox">
       <div id="recStatus">🎙 Слушаю…</div>
       <div id="answerText" class="hidden"></div>
       <input id="answerInput" class="hidden" placeholder="Распознавание недоступно — напиши ответ текстом">
@@ -315,10 +324,15 @@
         <button id="confirmBtn" class="btn small hidden">✅ Подтвердить</button>
       </div>
     </div>
+    <div id="scoreBlock" class="hidden">
+      <div id="scoreBig">7/10</div>
+      <button id="verdictToggle" class="btn small secondary">📖 Вердикт</button>
+      <div id="verdictText" class="hidden"></div>
+    </div>
     <button id="openNextBtn" class="btn next hidden">Дальше →</button>
   </div>
 </div>
-<div id="verdictOverlay" class="flash"><div><div class="big">Кринж 0/10</div><div class="sub"></div></div></div>
+<div id="judgeLoader" class="flash"><div class="loaderBox"><div class="spinner"></div><div class="loaderText">Жюри оценивает твой ответ…</div></div></div>
 <div id="poseCue" aria-live="assertive"><div class="cue"></div></div>
 
 <div id="startScreen">
@@ -1760,6 +1774,10 @@
     document.getElementById('reRecBtn').classList.add('hidden');
     document.getElementById('confirmBtn').classList.add('hidden');
     document.getElementById('openNextBtn').classList.add('hidden');
+    document.getElementById('openAnswerBox').classList.remove('hidden');
+    document.getElementById('scoreBlock').classList.add('hidden');
+    document.getElementById('verdictText').classList.add('hidden');
+    document.getElementById('verdictToggle').classList.remove('hidden');
     speakSituation(s.d);
     // селфи «до» — лицо, когда услышал ситуацию
     setTimeout(() => captureOpenShot('ДО'), 1400);
@@ -1810,6 +1828,10 @@
     const confirmBtn = document.getElementById('confirmBtn');
     confirmBtn.disabled = true;
     const s = OPEN_SITUATIONS[openIndex];
+    // лоадер: жюри оценивает 3-5 с
+    const loader = document.getElementById('judgeLoader');
+    loader.classList.add('show');
+    const t0 = performance.now();
     let judge = null;
     try {
       const r = await fetch('/quiz/api/judge', {
@@ -1822,24 +1844,44 @@
     if (!judge || typeof judge.score !== 'number') {
       judge = { score: 5, verdict: 'Жюри молчит — сеть подвела. Но мы-то видели твоё лицо!', rank: 'Без оценки' };
     }
+    // минимум ~1.2 с лоадера, чтобы не мигал при быстром ответе
+    const elapsed = performance.now() - t0;
+    if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
+    loader.classList.remove('show');
     openSum += judge.score;
     document.getElementById('openScore').innerHTML = `Баллы: <b>${openSum}</b>`;
-    showVerdict(judge, text);
+    // быстрый обратный отсчёт → селфи с оценкой
+    await runScoreCountdown(judge);
+    showScoreBlock(judge);
   }
 
-  function showVerdict(judge, ansText) {
-    const ov = document.getElementById('verdictOverlay');
-    ov.querySelector('.big').textContent = `Кринж ${judge.score}/10`;
-    ov.querySelector('.sub').textContent = `${judge.rank}. ${judge.verdict}`;
-    ov.classList.add('show');
-    setTimeout(() => {
-      ov.classList.remove('show');
-      if (judge.score >= 7) freezeFrame(true); else startRain();
-      setTimeout(() => captureOpenShot('ПОСЛЕ'), 900);
-      const nb = document.getElementById('openNextBtn');
-      nb.textContent = (openIndex >= OPEN_TOTAL - 1) ? 'Узнать результат 🏁' : 'Дальше →';
-      nb.classList.remove('hidden');
-    }, 1700);
+  function runScoreCountdown(judge) {
+    return new Promise(resolve => {
+      const good = judge.score >= 7;
+      showPoseCue(`КРИНЖ ${judge.score}`, good ? 'good' : 'bad');
+      beep(good ? 880 : 180, .12, 'square', .1);
+      setTimeout(() => { showPoseCue('2', 'count'); beep(430, .08, 'square', .08); }, 420);
+      setTimeout(() => { showPoseCue('1', 'count'); beep(560, .08, 'square', .09); }, 1040);
+      setTimeout(() => {
+        showPoseCue('ЩЁЛК!', 'snap'); beep(1050, .07, 'square', .12);
+        if (good) freezeFrame(true); else startRain();
+        setTimeout(() => {
+          captureOpenShot('ПОСЛЕ');
+          hidePoseCue();
+          resolve();
+        }, 320);
+      }, 1660);
+    });
+  }
+
+  function showScoreBlock(judge) {
+    document.getElementById('scoreBig').textContent = `${judge.score}/10`;
+    document.getElementById('verdictText').textContent = `${judge.rank}. ${judge.verdict}`;
+    document.getElementById('openAnswerBox').classList.add('hidden');
+    document.getElementById('scoreBlock').classList.remove('hidden');
+    const nb = document.getElementById('openNextBtn');
+    nb.textContent = (openIndex >= OPEN_TOTAL - 1) ? 'Узнать результат 🏁' : 'Дальше →';
+    nb.classList.remove('hidden');
   }
 
   function captureOpenShot(label) {
@@ -1977,6 +2019,9 @@
     startRec();
   };
   document.getElementById('confirmBtn').onclick = submitOpenAnswer;
+  document.getElementById('verdictToggle').onclick = () => {
+    document.getElementById('verdictText').classList.toggle('hidden');
+  };
   document.getElementById('ttsBtn').onclick = () => speakSituation(OPEN_SITUATIONS[openIndex].d);
   document.getElementById('answerInput').addEventListener('input', () => {
     document.getElementById('confirmBtn').classList.remove('hidden');
