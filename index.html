@@ -1778,6 +1778,7 @@
     document.getElementById('scoreBlock').classList.add('hidden');
     document.getElementById('verdictText').classList.add('hidden');
     document.getElementById('verdictToggle').classList.remove('hidden');
+    document.getElementById('confirmBtn').disabled = false;
     speakSituation(s.d);
     // селфи «до» — лицо, когда услышал ситуацию
     setTimeout(() => captureOpenShot('ДО'), 1400);
