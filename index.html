@@ -313,7 +313,6 @@
   <div id="card">
     <div id="openNum">Ситуация 1 из 5</div>
     <div id="situationText">…</div>
-    <button id="ttsBtn" class="btn small secondary">🔊 Озвучить ещё</button>
     <div class="openAnswerBox" id="openAnswerBox">
       <div id="recStatus">🎙 Слушаю…</div>
       <div id="answerText" class="hidden"></div>
@@ -1764,6 +1763,7 @@
     const s = OPEN_SITUATIONS[openIndex];
     document.getElementById('openNum').textContent = `Ситуация ${openIndex + 1} из ${OPEN_TOTAL}`;
     document.getElementById('situationText').textContent = s.d;
+    document.getElementById('situationText').classList.remove('hidden');
     document.getElementById('openProgress').style.width = (openIndex / OPEN_TOTAL * 100) + '%';
     document.getElementById('openScore').innerHTML = `Баллы: <b>${openSum}</b>`;
     recFinal = '';
@@ -1877,6 +1877,8 @@
   function showScoreBlock(judge) {
     document.getElementById('scoreBig').textContent = `${judge.score}/10`;
     document.getElementById('verdictText').textContent = `${judge.rank}. ${judge.verdict}`;
+    // по ТЗ: остаются только селфи, оценка и кнопка развернуть коммент
+    document.getElementById('situationText').classList.add('hidden');
     document.getElementById('openAnswerBox').classList.add('hidden');
     document.getElementById('scoreBlock').classList.remove('hidden');
     const nb = document.getElementById('openNextBtn');
@@ -2022,7 +2024,6 @@
   document.getElementById('verdictToggle').onclick = () => {
     document.getElementById('verdictText').classList.toggle('hidden');
   };
-  document.getElementById('ttsBtn').onclick = () => speakSituation(OPEN_SITUATIONS[openIndex].d);
   document.getElementById('answerInput').addEventListener('input', () => {
     document.getElementById('confirmBtn').classList.remove('hidden');
   });
