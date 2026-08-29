@@ -247,6 +247,24 @@
   .answers { gap:6px; }
   .ans { min-height:37px; padding:6px; font-size:12px; box-shadow:2px 3px 0 var(--ink); }
   .btn.next { margin-top:9px; padding:8px 12px; }
+
+  /* ---------- Открытые вопросы (MVP) ---------- */
+  #openUi #top .logo { max-width:100%; }
+  #openScore { padding:7px 9px; color:var(--paper); background:var(--ink); border:3px solid var(--paper); font-size:12px; font-weight:900; opacity:1; text-shadow:none; transform:rotate(1deg); }
+  #openScore b { color:var(--yellow); }
+  #openNum { display:inline-block; margin:-30px 0 9px -5px; padding:5px 9px; color:var(--paper); background:var(--red); border:3px solid var(--ink); font-size:10px; box-shadow:3px 3px 0 var(--ink); transform:rotate(-2deg); }
+  #situationText { color:var(--ink); font-size:18px; line-height:1.3; font-weight:800; letter-spacing:-.25px; margin-bottom:8px; }
+  .btn.small { margin-top:10px; padding:8px 14px; font-size:12px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
+  .btn.small.secondary { background:var(--paper); }
+  .openAnswerBox { margin-top:10px; padding-top:10px; border-top:3px dashed rgba(9,6,17,.3); }
+  #recStatus { display:none; font-size:12px; font-weight:900; color:#e5484d; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
+  #recStatus.show { display:block; }
+  #recStatus.recording { animation:rec-pulse 1s ease-in-out infinite; }
+  @keyframes rec-pulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+  #answerText { font-size:15px; font-weight:800; line-height:1.35; padding:8px 10px; margin-bottom:6px; border:3px solid var(--ink); background:#fff; border-radius:4px; }
+  #answerInput { width:100%; box-sizing:border-box; padding:9px 10px; font-size:14px; font-weight:700; border:3px solid var(--ink); border-radius:4px; background:#fff; color:var(--ink); font-family:inherit; }
+  .openBtns { display:flex; gap:8px; flex-wrap:wrap; }
+  #verdictOverlay .big { font-size:clamp(28px,8vw,52px); }
 </style>
 </head>
 <body>
@@ -268,14 +286,37 @@
   </div>
 </div>
 
-<div id="winOverlay" class="flash"><div><div class="big">✓ ВЕРНО!</div><div class="sub">Стоп-кадр. Отличный ответ.</div></div></div>
-<div id="loseOverlay" class="flash"><div><div class="big">🌧 ПОРАЖЕНИЕ</div><div class="sub">Дождь идёт по тебе…</div></div></div>
+<div id="openUi" class="hidden">
+  <div id="top">
+    <div class="logo">🎤 Кринж-баттл <span>• Открытые вопросы</span></div>
+    <div id="openScore">Баллы: <b>0</b></div>
+  </div>
+  <div id="progressWrap"><div id="openProgress"></div></div>
+  <div id="card">
+    <div id="openNum">Ситуация 1 из 5</div>
+    <div id="situationText">…</div>
+    <button id="ttsBtn" class="btn small secondary">🔊 Озвучить ещё</button>
+    <div class="openAnswerBox">
+      <div id="recStatus">🎙 Слушаю…</div>
+      <div id="answerText" class="hidden"></div>
+      <input id="answerInput" class="hidden" placeholder="Распознавание недоступно — напиши ответ текстом">
+      <div class="openBtns">
+        <button id="recBtn" class="btn small">🎙 Говорить</button>
+        <button id="reRecBtn" class="btn small hidden">🔄 Перезаписать</button>
+        <button id="confirmBtn" class="btn small hidden">✅ Подтвердить</button>
+      </div>
+    </div>
+    <button id="openNextBtn" class="btn next hidden">Дальше →</button>
+  </div>
+</div>
+<div id="verdictOverlay" class="flash"><div><div class="big">Кринж 0/10</div><div class="sub"></div></div></div>
 <div id="poseCue" aria-live="assertive"><div class="cue"></div></div>
 
 <div id="startScreen">
   <div class="h1">📸 Селфи-квиз</div>
   <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — яркий manga-burst ✦<br>Мимо — новая драматичная сцена каждый раз</div>
   <button class="btn" id="startBtn">▶ Играть</button>
+  <button class="btn secondary" id="openBtn">🎤 Открытые вопросы</button>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
 </div>
 
@@ -1594,6 +1635,7 @@
 
   function startGame() {
     score = 0; qIndex = 0;
+    document.getElementById('openUi').classList.add('hidden');
     QUESTIONS = shuffle([...QUESTION_BANK]).slice(0, 6);
     if (!portraitStyleLocked) preparePortraitModes();
     roundShots = [];
@@ -1604,8 +1646,282 @@
     renderQuestion();
   }
 
+  const OPEN_SITUATIONS = [
+    { d: 'Ты работаешь аниматором на детском празднике. Ты в костюме свинки, и случайно с ноги сбиваешь ребёнка. Ребёнок в слезах, все родители смотрят на тебя. Что сказать, чтобы спасти положение?', c: 'неловкие', t: 'работа', s: 'Demilked (TikTok)' },
+    { d: 'Ты в метро читаешь книгу. Подходит девушка и спрашивает: «Нравится?» Ты отвечаешь: «Нет, это ужасный графоманский бред». Оказывается, она — автор этой книги.', c: 'неловкие', t: 'улица', s: 'Demilked (TikTok)' },
+    { d: 'На работе ты в первый день жалуешься коллеге: «Голоден так, что руку бы откусил». А у коллеги нет одной руки. Он спокойно отвечает: «Я тоже так однажды сделал».', c: 'неловкие', t: 'работа', s: 'Demilked (TikTok)' },
+    { d: 'Ты в церкви слышишь сзади роботизированный голос и громко кричишь: «Что это, вторжение инопланетян?!» Оказалось, это старик с голосовым аппаратом после рака горла.', c: 'неловкие', t: 'общение', s: 'Demilked (TikTok)' },
+    { d: 'В супермаркете ты видишь мужчину с букетом и шутишь: «Ой, что натворил?» А он покупает цветы на могилу жены.', c: 'неловкие', t: 'общение', s: 'Demilked (TikTok)' },
+    { d: 'Ты на приёме у врача в коляске. Вместо того чтобы сказать «присядьте», ты машинально говоришь пациенту в инвалидной коляске: «Присаживайтесь». Он смотрит на коляску и говорит: «Уже сижу».', c: 'неловкие', t: 'работа', s: 'Demilked' },
+    { d: 'Ты в магазине видишь ребёнка, который лежит на полу и дёргает руками. Ты говоришь его папе: «Кому-то нужен дневной сон!» А он отвечает: «Нет, у него ДЦП».', c: 'неловкие', t: 'улица', s: 'Demilked (TikTok)' },
+    { d: 'Ты поздравляешь пациента на ежегодном осмотре с потерей веса. Оказывается, ему ампутировали ногу.', c: 'неловкие', t: 'работа', s: 'Reddit (TikTok)' },
+    { d: 'Ты работаешь в пекарне и расписал торт-мороженое под заказ. Утром открываешь холодильник — торт растёкся по всем полкам. Клиент вот-вот придёт. Что ему сказать?', c: 'неловкие', t: 'работа', s: 'ADME/Reddit' },
+    { d: 'На работе ты забыл перевернуть табличку «Закрыто» на «Открыто». Полдня посетители подходили и уходили. Коллега спрашивает: «А мы вообще открыты?»', c: 'неловкие', t: 'работа', s: 'ADME/Reddit' },
+    { d: 'Ты случайно удалил почтовые аккаунты всей организации. Включая аккаунты владельцев бизнеса. Теперь надо признаться.', c: 'экстремальные', t: 'работа', s: 'ADME/Reddit' },
+    { d: 'На собеседовании тебя спросили о причине ухода с прошлой работы. Ты честно рассказал, что ненавидел начальника. Через минуту выясняется — новый начальник его брат.', c: 'неловкие', t: 'работа', s: 'Reddit' },
+    { d: 'Твой первый день на работе. Ты не узнал генерального директора, отправил его ждать приёма и попросил фамилию. Он назвался, а ты сказал: «Тебя нет в ведомости».', c: 'неловкие', t: 'работа', s: 'ADME/Пикабу' },
+    { d: 'Ты писала начальнице в мессенджере. После порции заданий написала мужу всё, что думаешь о её методах работы. Но отправила это начальнице.', c: 'неловкие', t: 'работа', s: 'ADME' },
+    { d: 'Ты идёшь по улице и видишь человека, идущего к тебе. Вы начинаете «танец уклонений» — уходите в одну сторону, потом в другую, потом опять в одну. Три раза подряд.', c: 'неловкие', t: 'улица', s: 'BoredPanda/Reddit' },
+    { d: 'Ты придерживаешь дверь для человека, но он оказывается слишком далеко. Ему приходится бежать вприпрыжку, а ты чувствуешь себя ужасно, заставляя его торопиться.', c: 'неловкие', t: 'улица', s: 'BoredPanda/Reddit' },
+    { d: 'Ты ответил незнакомцу, который сказал «привет», но потом понял, что он говорил по телефону, а не с тобой. Теперь не можешь уснуть, прокручивая этот момент.', c: 'неловкие', t: 'улица', s: 'BoredPanda/Reddit' },
+    { d: 'В ресторане официант приносит еду и говорит «приятного аппетита». Ты автоматически отвечаешь: «Вам тоже». Он уходит. Ты понимаешь, что сказал.', c: 'неловкие', t: 'общение', s: 'BoredPanda/Reddit' },
+    { d: 'Ты в компании людей. Кто-то показывает всем видео на телефоне. Остаёшься только ты, все ждут твоей очереди смотреть. Тишина.', c: 'неловкие', t: 'общение', s: 'BoredPanda/Reddit' },
+    { d: 'Ты встретил знакомого, но напрочь забыл его имя. А он уже начал разговор. Спрашивать имя слишком поздно.', c: 'неловкие', t: 'общение', s: 'BoredPanda/Reddit' },
+    { d: 'Тебя пригласили в гости к девушке/парню знакомиться с родителями. За ужином родители устроили грандиозную ссору. Все смотрят на тебя.', c: 'неловкие', t: 'семья', s: 'BoredPanda/Reddit' },
+    { d: 'Друг показывает тебе что-то на телефоне и листает галерею. Ты случайно видишь его личные фото, но делаешь вид, что не заметил. Он понимает, что ты видел.', c: 'неловкие', t: 'гаджеты', s: 'BoredPanda/Reddit' },
+    { d: 'Ты на работе в банке. Просишь клиента: «Дайте указательный палец правой руки для отпечатка». Вы встретились взглядами — у него нет руки.', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Ты зашёл в лифт. Женщина спрашивает: «Куда едем?» Ты начинаешь подробно рассказывать планы на день. Она: «Я имела в виду — какой этаж?»', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты замужем, сменила фамилию. Курьер спрашивает: «Вы Блэк?» Ты: «Нет, я белая». И забираешь посылку. Только потом доходит — это была фамилия.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты работаешь официантом. Клиент заказал «Лонг-Айленд Айс Ти». Ты приносишь стакан чая и говоришь: «Это обычный липтон, не знаю где его производят».', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'На работе ты хотел сказать клиенту «Приятного дня» и «наслаждайтесь». В итоге выдал: «Наслаждайтесь остатком ваших дней» — весьма зловеще прозвучало.', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Ты работаешь в театре и продаёшь мороженое. У тебя нет терминала. Клиент спрашивает: «У вас есть терминал?» Ты: «Я не боюсь». Он в замешательстве.', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Ты на уроке. Учитель географии просит показать на карте Мадагаскар. Ты оборачиваешься и смеёшься: «Это же мультик!» Весь класс в шоке.', c: 'неловкие', t: 'учёба', s: 'BoredPanda/TikTok' },
+    { d: 'Ты в кафе. Заказываешь вафлю. Кассирша: «Наличными или картой?» Ты, глядя ей в глаза: «Вафлей». И замолкаешь.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты работаешь в ресторане, забыл слово «утка». Несёшь блюдо, ставишь перед гостями, смотришь на них и говоришь: «Кря».', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Ты несёшь клиенту кофе и не можешь выбрать между «Вот ваш кофе» и «Приятного кофепития». В итоге выдаёшь: «Кофе кофе кофе».', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'В лифте ты случайно назвал жену начальника его мамой. Она удивлённо подняла бровь.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты случайно отправил сообщение «Достал этот курсовой, сил больше нет» не другу, а научному руководителю. Он прочитал.', c: 'неловкие', t: 'гаджеты', s: 'blog.fenix.help' },
+    { d: 'Ты на собеседовании. Тебя спрашивают, почему ушёл с прошлой работы. Ты начинаешь жаловаться на бывшего начальника без цензуры. Через минуту понимаешь — новый работодатель может подумать, что ты конфликтный.', c: 'неловкие', t: 'работа', s: 'blog.fenix.help' },
+    { d: 'В компании ты сказал, что люди после 40, живущие с родителями — безвольные ленивцы. Один из друзей в компании живёт именно так. Повисла неловкая тишина.', c: 'неловкие', t: 'общение', s: 'blog.fenix.help' },
+    { d: 'Ты встретил старого друга и радостно спросил: «Как там твоя девушка?» А они расстались год назад, и он до сих пор тяжело это переживает.', c: 'неловкие', t: 'общение', s: 'blog.fenix.help' },
+    { d: 'На семейном ужине тётя раскритиковала твою внешность. Вечером ты пишешь об этом сестре, но отправляешь сообщение случайно тёте. Она прочитала.', c: 'неловкие', t: 'семья', s: 'blog.fenix.help' },
+    { d: 'В твоей пиццерии клиент просит «Маргариту». Ты, желая уточнить состав, говоришь: «Сыр, соус, базилик...» и забываешь слово «тесто». Зависаешь.', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Учительница попросила тебя прочитать абзац вслух. Ты начинаешь читать, но язык заплетается, и ты произносишь слово «экскаватор» как «экскаваааа... тор». Тишина в классе.', c: 'неловкие', t: 'учёба', s: 'BoredPanda/TikTok' },
+    { d: 'Ты зашёл в кафе, подошёл к витрине и принялся внимательно разглядывать десерты. Продавец: «Вам помочь?» Ты: «Нет, просто смотрю». Он убирал витрину, кафе не работало.', c: 'неловкие', t: 'улица', s: 'BoredPanda/TikTok' },
+    { d: 'Ты на стажировке. Клиент спрашивает, где у вас «соцсети». Ты ведёшь его к туалету, потому что подумал — «сортир».', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Ты на свидании. Девушка спрашивает: «Ты любишь животных?» Ты начинаешь 15-минутный рассказ о своей собаке. Она смотрит на часы.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты случайно нажал «поделиться экраном» на созвоне, и все увидели, как у тебя открыты вкладки с мемами вместо рабочего документа.', c: 'неловкие', t: 'гаджеты', s: 'BoredPanda/TikTok' },
+    { d: 'Ты был на вечеринке и кто-то спросил: «Чем занимаешься?» Ты начал рассказывать о своей работе, но через 2 минуты понял, что человек уже ушёл, а ты говоришь в пустоту.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты встретил коллегу в лифте и решил поддержать разговор: «Ну и погода!» Он: «Да, моего пса вчера разорвало молнией». Ты не знаешь, шутит он или нет.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'Ты хочешь сделать комплимент коллеге: «Отлично выглядишь, похудел(а)?» А оказывается, человек просто болел и похудел от болезни.', c: 'неловкие', t: 'работа', s: 'Reddit' },
+    { d: 'Ты на родительском собрании в школе и случайно назвал учительницу «мамой». Она улыбнулась, но класс захихикал.', c: 'неловкие', t: 'учёба', s: 'Reddit' },
+    { d: 'Ты подарил подруге духи с запахом, который она ненавидит. Она открывает подарок, нюхает, и её лицо вытягивается. Она пытается сказать «спасибо», но голос выдаёт разочарование.', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+    { d: 'На уроке учитель вызывает тебя к доске. Ты встаёшь и понимаешь, что у тебя затекла нога. Ты пытаешься идти, но выглядит это как ходьба пингвина. Все смеются.', c: 'неловкие', t: 'учёба', s: 'BoredPanda/TikTok' },
+    { d: 'В супермаркете ты случайно проходишь мимо кассира, не заплатив за товар под мышкой. Срабатывает сигнализация. Охрана подходит.', c: 'неловкие', t: 'улица', s: 'BoredPanda/TikTok' },
+    { d: 'Ты идёшь по улице с друзьями втроём. Ты третий лишний — не помещаешься и вынужден идти позади всех, чувствуя себя неловко.', c: 'неловкие', t: 'общение', s: 'BoredPanda/Reddit' },
+    { d: 'Ты случайно поставил лайк на фото в Instagram\'е трёхлетней давности, листая чей-то профиль. Теперь автор фото видит уведомление. Что ему написать?', c: 'неловкие', t: 'гаджеты', s: 'BoredPanda/Reddit' },
+    { d: 'Ты идёшь по улице и видишь человека, идущего к тебе. Вы начинаете «танец уклонений» — уходите в одну сторону, потом в другую, потом опять в одну. Три раза подряд. Как ты отреагируешь?', c: 'неловкие', t: 'улица', s: 'BoredPanda/Reddit' },
+    { d: 'Ты придерживаешь дверь для человека, но он оказывается слишком далеко. Ему приходится бежать вприпрыжку, а ты чувствуешь себя ужасно, заставляя его торопиться. Как ты отреагируешь?', c: 'неловкие', t: 'улица', s: 'BoredPanda/Reddit' },
+    { d: 'В ресторане официант приносит еду и говорит «приятного аппетита». Ты автоматически отвечаешь: «Вам тоже». Как ты отреагируешь?', c: 'неловкие', t: 'общение', s: 'BoredPanda/Reddit' },
+    { d: 'Тебя пригласили в гости к девушке/парню знакомиться с родителями. За ужином родители устроили грандиозную ссору. Как ты отреагируешь?', c: 'неловкие', t: 'семья', s: 'BoredPanda/Reddit' },
+    { d: 'Ты на работе в банке. Просишь клиента: «Дайте указательный палец правой руки для отпечатка». И тут видишь, что у него рука в гипсе. Как ты отреагируешь?', c: 'неловкие', t: 'работа', s: 'BoredPanda/TikTok' },
+    { d: 'Ты зашёл в лифт на работе. Женщина спрашивает: «Куда едем?» Ты начинаешь подробно рассказывать планы на свой отпуск — как поедешь на пляж на далёких островах. Она: «Я имела в виду — какой этаж?» Как ты отреагируешь?', c: 'неловкие', t: 'общение', s: 'BoredPanda/TikTok' },
+  ];
+  let openMode = false;
+  let openIndex = 0, openSum = 0;
+  const OPEN_TOTAL = 5;
+  let rec = null, recFinal = '';
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function speakSituation(text) {
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU'; u.rate = 1;
+      speechSynthesis.speak(u);
+    } catch (e) { dbgLog('tts-error', { err: String(e) }); }
+  }
+
+  function startOpenGame() {
+    openMode = true;
+    openIndex = 0; openSum = 0;
+    roundShots = [];
+    document.getElementById('roundStrip').classList.add('hidden');
+    stopFx();
+    endScreen.classList.add('hidden');
+    ui.classList.add('hidden');
+    document.getElementById('openUi').classList.remove('hidden');
+    if (!portraitStyleLocked) preparePortraitModes();
+    nextSituation();
+  }
+
+  function nextSituation() {
+    stopFx();
+    locked = false;
+    const s = OPEN_SITUATIONS[openIndex];
+    document.getElementById('openNum').textContent = `Ситуация ${openIndex + 1} из ${OPEN_TOTAL}`;
+    document.getElementById('situationText').textContent = s.d;
+    document.getElementById('openProgress').style.width = (openIndex / OPEN_TOTAL * 100) + '%';
+    document.getElementById('openScore').innerHTML = `Баллы: <b>${openSum}</b>`;
+    recFinal = '';
+    const at = document.getElementById('answerText'); at.classList.add('hidden'); at.textContent = '';
+    const ai = document.getElementById('answerInput'); ai.classList.add('hidden'); ai.value = '';
+    document.getElementById('recStatus').classList.remove('show', 'recording');
+    document.getElementById('recBtn').classList.remove('hidden');
+    document.getElementById('reRecBtn').classList.add('hidden');
+    document.getElementById('confirmBtn').classList.add('hidden');
+    document.getElementById('openNextBtn').classList.add('hidden');
+    speakSituation(s.d);
+    // селфи «до» — лицо, когда услышал ситуацию
+    setTimeout(() => captureOpenShot('ДО'), 1400);
+  }
+
+  function startRec() {
+    if (!SR) {
+      document.getElementById('answerInput').classList.remove('hidden');
+      document.getElementById('recBtn').classList.add('hidden');
+      document.getElementById('confirmBtn').classList.remove('hidden');
+      return;
+    }
+    if (rec) { try { rec.abort(); } catch (e) {} }
+    rec = new SR();
+    rec.lang = 'ru-RU';
+    rec.interimResults = true;
+    rec.continuous = false;
+    const status = document.getElementById('recStatus');
+    rec.onstart = () => { status.classList.add('show', 'recording'); };
+    rec.onresult = (e) => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t; else interim += t;
+      }
+      if (final) { recFinal += final; try { rec.stop(); } catch (err) {} }
+      const at = document.getElementById('answerText');
+      at.textContent = (recFinal + ' ' + interim).trim();
+      at.classList.remove('hidden');
+    };
+    rec.onend = () => {
+      status.classList.remove('show', 'recording');
+      if (recFinal.trim()) {
+        document.getElementById('recBtn').classList.add('hidden');
+        document.getElementById('reRecBtn').classList.remove('hidden');
+        document.getElementById('confirmBtn').classList.remove('hidden');
+      }
+    };
+    rec.onerror = (e) => { status.classList.remove('show', 'recording'); dbgLog('rec-error', { err: e.error }); };
+    rec.start();
+  }
+
+  async function submitOpenAnswer() {
+    const ai = document.getElementById('answerInput');
+    const text = (recFinal || ai.value || document.getElementById('answerText').textContent).trim();
+    if (!text || locked) return;
+    locked = true;
+    const confirmBtn = document.getElementById('confirmBtn');
+    confirmBtn.disabled = true;
+    const s = OPEN_SITUATIONS[openIndex];
+    let judge = null;
+    try {
+      const r = await fetch('/quiz/api/judge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ situation: s.d, answer: text })
+      });
+      if (r.ok) judge = await r.json();
+    } catch (e) { dbgLog('judge-error', { err: String(e) }); }
+    if (!judge || typeof judge.score !== 'number') {
+      judge = { score: 5, verdict: 'Жюри молчит — сеть подвела. Но мы-то видели твоё лицо!', rank: 'Без оценки' };
+    }
+    openSum += judge.score;
+    document.getElementById('openScore').innerHTML = `Баллы: <b>${openSum}</b>`;
+    showVerdict(judge, text);
+  }
+
+  function showVerdict(judge, ansText) {
+    const ov = document.getElementById('verdictOverlay');
+    ov.querySelector('.big').textContent = `Кринж ${judge.score}/10`;
+    ov.querySelector('.sub').textContent = `${judge.rank}. ${judge.verdict}`;
+    ov.classList.add('show');
+    setTimeout(() => {
+      ov.classList.remove('show');
+      if (judge.score >= 7) freezeFrame(true); else startRain();
+      setTimeout(() => captureOpenShot('ПОСЛЕ'), 900);
+      const nb = document.getElementById('openNextBtn');
+      nb.textContent = (openIndex >= OPEN_TOTAL - 1) ? 'Узнать результат 🏁' : 'Дальше →';
+      nb.classList.remove('hidden');
+    }, 1700);
+  }
+
+  function captureOpenShot(label) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    drawPosterVisual(x, w, h);
+    x.font = '900 22px sans-serif';
+    x.textAlign = 'right';
+    x.textBaseline = 'top';
+    x.lineWidth = 6;
+    x.strokeStyle = 'rgba(0,0,0,.65)';
+    x.strokeText(label, w - 16, 16);
+    x.fillStyle = '#ffd93d';
+    x.fillText(label, w - 16, 16);
+    roundShots.push(c.toDataURL('image/jpeg', 0.9));
+  }
+
+  function wrapText(x, text, maxW) {
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const wd of words) {
+      const t = cur ? cur + ' ' + wd : wd;
+      if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = wd; }
+      else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  function buildOpenShareImage() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    drawPosterVisual(x, w, h);
+    const plate = x.createLinearGradient(0, h - 200, 0, h);
+    plate.addColorStop(0, 'rgba(4,2,14,0)');
+    plate.addColorStop(1, 'rgba(4,2,14,0.9)');
+    x.fillStyle = plate; x.fillRect(0, h - 200, w, 200);
+    const avg = openSum / OPEN_TOTAL;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.font = '900 34px sans-serif';
+    x.lineWidth = 8;
+    x.strokeStyle = 'rgba(0,0,0,0.65)';
+    const label = `🤡 Кринж ${openSum}/${OPEN_TOTAL * 10}`;
+    x.strokeText(label, w / 2, h - 158);
+    x.fillStyle = avg >= 6 ? '#ffd93d' : '#8ab4ff';
+    x.fillText(label, w / 2, h - 158);
+    x.font = '700 15px sans-serif';
+    x.lineWidth = 5;
+    const s = OPEN_SITUATIONS[openIndex];
+    const qLines = wrapText(x, s ? s.d : '', w - 48);
+    qLines.slice(0, 3).forEach((ln, i) => {
+      x.strokeText(ln, w / 2, h - 116 + i * 20);
+      x.fillStyle = '#ffffff';
+      x.fillText(ln, w / 2, h - 116 + i * 20);
+    });
+    x.font = '700 13px sans-serif';
+    x.lineWidth = 4;
+    const ans = document.getElementById('answerText').textContent || document.getElementById('answerInput').value;
+    const aLines = wrapText(x, 'Твой ответ: ' + ans, w - 48).slice(0, 2);
+    aLines.forEach((ln, i) => {
+      x.strokeText(ln, w / 2, h - 52 + i * 18);
+      x.fillStyle = '#ffd93d';
+      x.fillText(ln, w / 2, h - 52 + i * 18);
+    });
+    return c;
+  }
+
+  function finishOpen() {
+    stopFx();
+    document.getElementById('openUi').classList.add('hidden');
+    document.getElementById('openProgress').style.width = '100%';
+    const avg = openSum / OPEN_TOTAL;
+    const win = avg >= 6;
+    document.getElementById('endTitle').textContent = win ? '🏆 КОРОЛЬ КРИНЖА!' : '🌧 МАЛО КРИНЖА!';
+    document.getElementById('endText').textContent = win
+      ? `Средний кринж ${avg.toFixed(1)}/10. Забирай карточку с лицом!`
+      : `Средний кринж ${avg.toFixed(1)}/10. В следующий раз отвечай смелее.`;
+    renderRoundStrip();
+    endScreen.classList.remove('hidden');
+    if (win) freezeFrame(true); else startRain();
+  }
+
   // ---------- Старт ----------
   startBtn.onclick = async () => {
+    openMode = false;
     if (!segmenter) {
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
       if (!model) return;
@@ -1621,7 +1937,51 @@
     startScreen.classList.add('hidden');
     startGame();
   };
-  document.getElementById('againBtn').onclick = () => startGame();
+
+  document.getElementById('openBtn').onclick = async () => {
+    openMode = true;
+    if (!segmenter) {
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (!model) return;
+    }
+    startBtn.disabled = true;
+    startBtn.textContent = '◌ Включаем камеру…';
+    const ok = await startCamera();
+    if (!ok) {
+      setStartModelState('ready');
+      modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
+      return;
+    }
+    startScreen.classList.add('hidden');
+    startOpenGame();
+  };
+
+  // ---------- Открытые вопросы: управление ----------
+  document.getElementById('recBtn').onclick = startRec;
+  document.getElementById('reRecBtn').onclick = () => {
+    recFinal = '';
+    const at = document.getElementById('answerText');
+    at.textContent = ''; at.classList.add('hidden');
+    document.getElementById('confirmBtn').classList.add('hidden');
+    document.getElementById('reRecBtn').classList.add('hidden');
+    document.getElementById('recBtn').classList.remove('hidden');
+    startRec();
+  };
+  document.getElementById('confirmBtn').onclick = submitOpenAnswer;
+  document.getElementById('ttsBtn').onclick = () => speakSituation(OPEN_SITUATIONS[openIndex].d);
+  document.getElementById('answerInput').addEventListener('input', () => {
+    document.getElementById('confirmBtn').classList.remove('hidden');
+  });
+  document.getElementById('answerInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitOpenAnswer();
+  });
+  document.getElementById('openNextBtn').onclick = () => {
+    document.getElementById('openNextBtn').classList.add('hidden');
+    openIndex++;
+    if (openIndex >= OPEN_TOTAL) finishOpen();
+    else nextSituation();
+  };
+  document.getElementById('againBtn').onclick = () => { if (openMode) startOpenGame(); else startGame(); };
 
   // собрать картинку для шаринга: фон + человек + контур + счёт
   function buildShareImage() {
@@ -1656,14 +2016,14 @@
 
   shareBtn.onclick = async () => {
     try {
-      const img = buildShareImage();
+      const img = openMode ? buildOpenShareImage() : buildShareImage();
       const blob = await new Promise(res => img.toBlob(res, 'image/png'));
       if (!blob) throw new Error('toBlob failed');
       const file = new File([blob], 'selfie-quiz.png', { type: 'image/png' });
       const shareData = {
         files: [file],
         title: 'Селфи-квиз',
-        text: `Я набрал ${score} из ${QUESTIONS.length}!`
+        text: openMode ? `Я набрал ${openSum} из ${OPEN_TOTAL * 10} кринж-баллов!` : `Я набрал ${score} из ${QUESTIONS.length}!`
       };
       if (navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
