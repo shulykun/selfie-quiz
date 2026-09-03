@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Жюри для режима «Открытые вопросы» селфи-квиза.
 
-POST /judge  {"situation": "...", "answer": "..."}
+POST /judge or /quiz/api/judge  {"situation": "...", "answer": "..."}
   -> {"score": int 1-10, "verdict": str, "rank": str}
 
 DeepSeek-токен берётся из TokenStore (зашифрованная БД workspace).
@@ -19,6 +19,20 @@ import requests
 app = Flask(__name__)
 
 PORT = int(os.environ.get("QUIZ_JUDGE_PORT", "8003"))
+ALLOWED_ORIGIN = os.environ.get("QUIZ_JUDGE_ORIGIN", "")
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Allow the local static preview without exposing the API to arbitrary sites."""
+    origin = request.headers.get("Origin", "")
+    local_origin = origin.startswith(("http://127.0.0.1:", "http://localhost:"))
+    if local_origin or (ALLOWED_ORIGIN and origin == ALLOWED_ORIGIN):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    return response
 
 
 def get_deepseek_token():
@@ -76,6 +90,7 @@ def judge(situation: str, answer: str) -> dict:
 
 
 @app.route("/judge", methods=["POST", "OPTIONS"])
+@app.route("/quiz/api/judge", methods=["POST", "OPTIONS"])
 def judge_route():
     if request.method == "OPTIONS":
         return ("", 204)

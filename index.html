@@ -1780,8 +1780,6 @@
     document.getElementById('verdictToggle').classList.remove('hidden');
     document.getElementById('confirmBtn').disabled = false;
     speakSituation(s.d);
-    // селфи «до» — лицо, когда услышал ситуацию
-    setTimeout(() => captureOpenShot('ДО'), 1400);
   }
 
   function startRec() {
@@ -1835,7 +1833,9 @@
     const t0 = performance.now();
     let judge = null;
     try {
-      const r = await fetch('/quiz/api/judge', {
+      const localJudge = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+      const judgeUrl = localJudge ? 'http://127.0.0.1:8003/judge' : '/quiz/api/judge';
+      const r = await fetch(judgeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ situation: s.d, answer: text })
@@ -1863,15 +1863,25 @@
       beep(good ? 880 : 180, .12, 'square', .1);
       setTimeout(() => { showPoseCue('2', 'count'); beep(430, .08, 'square', .08); }, 420);
       setTimeout(() => { showPoseCue('1', 'count'); beep(560, .08, 'square', .09); }, 1040);
-      setTimeout(() => {
+      setTimeout(async () => {
         showPoseCue('ЩЁЛК!', 'snap'); beep(1050, .07, 'square', .12);
         if (good) freezeFrame(true); else startRain();
-        setTimeout(() => {
-          captureOpenShot('ПОСЛЕ');
-          hidePoseCue();
-          resolve();
-        }, 320);
+        await waitForPortraitLayers();
+        captureOpenShot(judge.score);
+        hidePoseCue();
+        resolve();
       }, 1660);
+    });
+  }
+
+  function waitForPortraitLayers(timeout = 2500) {
+    const started = performance.now();
+    return new Promise(resolve => {
+      const poll = () => {
+        if ((personLayer && bgLayer) || performance.now() - started >= timeout) resolve();
+        else setTimeout(poll, 50);
+      };
+      poll();
     });
   }
 
@@ -1887,7 +1897,7 @@
     nb.classList.remove('hidden');
   }
 
-  function captureOpenShot(label) {
+  function captureOpenShot(score) {
     const w = window.innerWidth, h = window.innerHeight;
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
@@ -1898,6 +1908,7 @@
     x.textBaseline = 'top';
     x.lineWidth = 6;
     x.strokeStyle = 'rgba(0,0,0,.65)';
+    const label = `КРИНЖ ${score}/10`;
     x.strokeText(label, w - 16, 16);
     x.fillStyle = '#ffd93d';
     x.fillText(label, w - 16, 16);
