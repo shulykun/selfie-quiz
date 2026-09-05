@@ -550,34 +550,34 @@
   let layerRevealAt = 0;
   let currentBgKind = null;
   const renderDpr = Math.min(window.devicePixelRatio || 1, 2);
-  const START_MUSIC_VOLUME = 0.18;
-  let startMusicFade = null;
+  const MENU_MUSIC_VOLUME = 0.18;
+  let menuMusicFade = null;
 
-  function playStartMusic() {
-    if (startScreen.classList.contains('hidden')) return;
-    if (startMusicFade) { clearInterval(startMusicFade); startMusicFade = null; }
-    startMusic.volume = START_MUSIC_VOLUME;
+  function playMenuMusic() {
+    if (startScreen.classList.contains('hidden') && endScreen.classList.contains('hidden')) return;
+    if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
+    startMusic.volume = MENU_MUSIC_VOLUME;
     startMusic.play().catch(() => {});
   }
 
-  function stopStartMusic() {
+  function stopMenuMusic() {
     if (startMusic.paused) return;
-    if (startMusicFade) clearInterval(startMusicFade);
+    if (menuMusicFade) clearInterval(menuMusicFade);
     const step = Math.max(startMusic.volume / 6, 0.01);
-    startMusicFade = setInterval(() => {
+    menuMusicFade = setInterval(() => {
       startMusic.volume = Math.max(0, startMusic.volume - step);
       if (startMusic.volume > 0) return;
-      clearInterval(startMusicFade);
-      startMusicFade = null;
+      clearInterval(menuMusicFade);
+      menuMusicFade = null;
       startMusic.pause();
       startMusic.currentTime = 0;
-      startMusic.volume = START_MUSIC_VOLUME;
+      startMusic.volume = MENU_MUSIC_VOLUME;
     }, 40);
   }
 
-  playStartMusic();
-  document.addEventListener('pointerdown', playStartMusic, { once:true });
-  document.addEventListener('keydown', playStartMusic, { once:true });
+  playMenuMusic();
+  document.addEventListener('pointerdown', playMenuMusic, { once:true });
+  document.addEventListener('keydown', playMenuMusic, { once:true });
 
   // Рисуем как CSS object-fit: cover, без растягивания лица и тела.
   function drawCover(target, source, w, h, mirror = false) {
@@ -1692,6 +1692,7 @@
     renderRoundStrip();
     endScreen.classList.remove('hidden');
     if (win) freezeFrame(true); else startRain();
+    playMenuMusic();
   }
 
   // Забираем именно тот шоу-кадр, который видит пользователь: вместе с лучами,
@@ -2133,6 +2134,7 @@
     renderRoundStrip();
     endScreen.classList.remove('hidden');
     if (win) freezeFrame(true); else startRain();
+    playMenuMusic();
   }
 
   // ---------- Старт ----------
@@ -2147,7 +2149,7 @@
 
   startBtn.onclick = async () => {
     if (startPending) return;
-    playStartMusic();
+    playMenuMusic();
     openMode = false;
     setStartPending(true, '◌ Загружаем игру…');
     if (!segmenter) {
@@ -2163,13 +2165,13 @@
       return;
     }
     startScreen.classList.add('hidden');
-    stopStartMusic();
+    stopMenuMusic();
     startGame();
   };
 
   openBtn.onclick = async () => {
     if (startPending) return;
-    playStartMusic();
+    playMenuMusic();
     openMode = true;
     setStartPending(true, '◌ Загружаем игру…');
     if (!segmenter) {
@@ -2186,12 +2188,12 @@
       return;
     }
     startScreen.classList.add('hidden');
-    stopStartMusic();
+    stopMenuMusic();
     const started = await startOpenGame();
     if (!started) {
       stopCamera();
       startScreen.classList.remove('hidden');
-      playStartMusic();
+      playMenuMusic();
       setStartPending(false);
       setStartModelState('ready');
     }
@@ -2240,11 +2242,19 @@
     document.getElementById('openUi').classList.add('hidden');
     endScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
-    playStartMusic();
+    playMenuMusic();
     setStartPending(false);
     setStartModelState(segmenter ? 'ready' : 'error');
   };
-  document.getElementById('againBtn').onclick = async () => { if (openMode) await startOpenGame(); else startGame(); };
+  document.getElementById('againBtn').onclick = async () => {
+    stopMenuMusic();
+    if (openMode) {
+      const started = await startOpenGame();
+      if (!started) playMenuMusic();
+    } else {
+      startGame();
+    }
+  };
 
   // собрать картинку для шаринга: фон + человек + контур + счёт
   function buildShareImage() {
