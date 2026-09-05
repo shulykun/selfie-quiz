@@ -1855,7 +1855,7 @@
       const img = document.createElement('img');
       img.src = src;
       img.alt = `Стоп-кадр ${idx + 1}`;
-      img.onclick = () => selectShot(src, img);
+      img.onclick = () => { metrikaGoal('photo_select'); selectShot(src, img); };
       img.ondblclick = () => {
         const a = document.createElement('a');
         a.href = src;
@@ -1920,6 +1920,7 @@
       return false;
     }
     lastOpenResult = null;
+    metrikaGoal('round_start');
     roundShots = [];
     document.getElementById('roundStrip').classList.add('hidden');
     stopFx();
@@ -2245,6 +2246,7 @@
 
   function finishOpen() {
     stopFx();
+    metrikaGoal('round_finish');
     document.getElementById('openUi').classList.add('hidden');
     document.getElementById('openProgress').style.width = '100%';
     const avg = openSum / OPEN_TOTAL;
@@ -2338,7 +2340,7 @@
     document.getElementById('openNextBtn').classList.add('hidden');
     openIndex++;
     if (openIndex >= OPEN_TOTAL) finishOpen();
-    else nextSituation();
+    else { metrikaGoal('next_question'); nextSituation(); }
   };
   document.getElementById('exitRoundBtn').onclick = () => {
     if (!confirm('Выйти из раунда? Текущий прогресс не сохранится.')) return;
@@ -2366,6 +2368,10 @@
       startGame();
     }
   };
+
+  function metrikaGoal(goalId) {
+    try { if (window.ym) ym(112316717, 'reachGoal', goalId); } catch (e) { dbgLog('metrika-error', { err: String(e) }); }
+  }
 
   // собрать картинку для шаринга: фон + человек + контур + счёт
   function buildShareImage() {
@@ -2411,6 +2417,7 @@
       };
       if (navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
+        metrikaGoal('share');
         return;
       }
       // фолбэк: скачать
@@ -2420,6 +2427,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
+      metrikaGoal('share');
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch (e) {
       dbgLog('share-error', { err: String(e) });
