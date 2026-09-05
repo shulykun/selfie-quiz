@@ -158,6 +158,9 @@
   }
   #poseCue.good .cue { background:#ffe34f; }
   #poseCue.bad .cue { color:#fff8df; background:#e5484d; }
+  #poseCue.normal .cue { background:var(--cyan); }
+  #poseCue.super .cue { background:var(--yellow); }
+  #poseCue.mega .cue { color:var(--paper); background:var(--magenta); }
   #poseCue.count .cue { min-width:104px; border-radius:50%; transform:rotate(2deg); }
   #poseCue.snap .cue { color:#fff8df; background:#090611; border-color:#fff8df; box-shadow:8px 8px 0 #e5484d; }
   #poseCue.bump .cue { animation:pose-bump .28s cubic-bezier(.16,1.3,.35,1) both; }
@@ -460,7 +463,7 @@
     const style = e.target.dataset && e.target.dataset.style;
     if (!style) return;
     portraitStyle = style; portraitStyleLocked = true; window.__portraitStyle = style; syncStyleLab();
-    if (segMask && snapshot && effect) buildLayers(effect === 'freeze' ? '#ffe34f' : '#52677f');
+    if (segMask && snapshot && effect) buildLayers(REACTION_GLOW_COLORS[currentReactionTier] || '#ffe34f');
   };
   syncStyleLab();
   window.__portraitStyle = portraitStyle;
@@ -511,6 +514,8 @@
   let flash = null;     // вспышка экрана
   let roundShots = [];   // лента стоп-кадров раунда
   let effect = null; // 'rain' (failure family) | 'freeze'
+  let currentReactionTier = 'normal';
+  const REACTION_GLOW_COLORS = { bad: '#52677f', normal: '#19d9ff', super: '#ffe34f', mega: '#ff3fb4' };
   const FAILURE_MODES = ['fracture', 'ink', 'shock', 'rain'];
   let failureMode = 'fracture';
   let failureBag = [];
@@ -764,8 +769,7 @@
     if (!res) return;
     if (res.mask && (effect === 'freeze' || effect === 'rain')) {
       segMask = res.mask;
-      // победа — золотой контур, поражение — холодный приглушённый
-      buildLayers(effect === 'freeze' ? '#ffe34f' : '#52677f');
+      buildLayers(REACTION_GLOW_COLORS[currentReactionTier] || '#ffe34f');
       hideSegError();
     } else if (res.error) {
       showSegError(res.error);
@@ -1073,9 +1077,12 @@
     window.__quizDebug.segApplied = true;
   }
 
-  function freezeFrame(good) {
+  function freezeFrame(celebration = 'super') {
+    const reactionTier = celebration === true ? 'super' : celebration === false ? 'normal' : celebration;
+    const good = reactionTier === 'super' || reactionTier === 'mega';
     stopFx();
     effect = 'freeze';
+    currentReactionTier = reactionTier;
     selectPortraitMode();
     const w = window.innerWidth, h = window.innerHeight;
     snapshot = captureSnapshot();
@@ -1088,10 +1095,11 @@
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     // Комиксный impact burst при победе: звёзды, точки, молнии и штрихи.
     impactParticles = [];
-    if (good) {
+    if (reactionTier !== 'normal') {
       const palette = ['#ffe34f', '#ff3b4f', '#19d9ff', '#ff3fb4', '#fff8df'];
       const kinds = ['star', 'dot', 'bolt', 'slash'];
-      for (let i = 0; i < 68; i++) {
+      const particleCount = reactionTier === 'mega' ? 92 : 68;
+      for (let i = 0; i < particleCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 2.8 + Math.random() * 6.2;
         impactParticles.push({
@@ -1116,7 +1124,8 @@
     rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: 28 };
     sparkles = [];
     const hx = subjectAnchor.x, hy = subjectAnchor.y;
-    for (let i = 0; i < 42; i++) {
+    const sparkleCount = reactionTier === 'mega' ? 58 : reactionTier === 'normal' ? 24 : 42;
+    for (let i = 0; i < sparkleCount; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1.5 + Math.random() * 4;
       sparkles.push({
@@ -1128,12 +1137,17 @@
         t0: performance.now()
       });
     }
-    const shouts = ['ВЕРНО!', 'БАМ!', 'ОГО!', 'ドン!'];
+    const shouts = reactionTier === 'mega'
+      ? ['МЕГА!', 'ВАУ!', '10/10!', '伝説!']
+      : reactionTier === 'normal'
+        ? ['НОРМАЛЬНО', 'ОКЕЙ', 'НЕПЛОХО']
+        : ['СУПЕР!', 'БАМ!', 'ОГО!', 'ドン!'];
+    const tagText = reactionTier === 'mega' ? 'LEGEND // 最高' : reactionTier === 'normal' ? 'ЕСТЬ ПОТЕНЦИАЛ' : 'NICE! // 正解';
     const pick = () => shouts[Math.floor(Math.random() * shouts.length)];
     const now0 = performance.now();
     popTexts = [
       { shape: 'burst', text: pick(), x: w * .5, y: h * .16, size: Math.min(46, w * .115), color: '#ffe34f', t0: now0 + 120, life: 1700 },
-      { shape: 'tag', text: 'NICE! // 正解', x: w * .22, y: h * .32, size: Math.min(16, w * .041), color: '#19d9ff', t0: now0 + 430, life: 1600 }
+      { shape: 'tag', text: tagText, x: w * .22, y: h * .32, size: Math.min(16, w * .041), color: '#19d9ff', t0: now0 + 430, life: 1600 }
     ];
     animateFx(w, h);
   }
@@ -1141,6 +1155,7 @@
   function startRain() {
     stopFx();
     effect = 'rain';
+    currentReactionTier = 'bad';
     if (!failureBag.length) failureBag = shuffle([...FAILURE_MODES]);
     failureMode = failureBag.pop();
     window.__quizDebug.failureMode = failureMode;
@@ -1926,12 +1941,19 @@
     showScoreBlock(judge);
   }
 
+  function gradeReaction(grade) {
+    if (grade < 5) return { key: 'bad', label: 'ПЛОХО', tone: 'bad', beep: 180 };
+    if (grade < 7) return { key: 'normal', label: 'НОРМАЛЬНО', tone: 'normal', beep: 520 };
+    if (grade < 9) return { key: 'super', label: 'СУПЕР', tone: 'super', beep: 880 };
+    return { key: 'mega', label: 'МЕГА', tone: 'mega', beep: 1120 };
+  }
+
   function runScoreCountdown(judge) {
     return new Promise(resolve => {
-      const good = judge.grade >= 7;
+      const reaction = gradeReaction(judge.grade);
       const openCard = document.querySelector('#openUi .openCard');
-      showPoseCue(`ОЦЕНКА ${judge.grade}`, good ? 'good' : 'bad');
-      beep(good ? 880 : 180, .12, 'square', .1);
+      showPoseCue(`${reaction.label} ${judge.grade}`, reaction.tone);
+      beep(reaction.beep, .12, 'square', .1);
       setTimeout(() => {
         openCard.classList.add('hidden');
         showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
@@ -1940,7 +1962,7 @@
       setTimeout(async () => {
         showPoseCue('ЩЁЛК!', 'snap'); beep(1050, .07, 'square', .12);
         try {
-          if (good) freezeFrame(true); else startRain();
+          if (reaction.key === 'bad') startRain(); else freezeFrame(reaction.key);
           await waitForPortraitLayers();
           captureOpenShot(judge.grade);
         } finally {
@@ -1986,7 +2008,7 @@
     x.textBaseline = 'top';
     x.lineWidth = 6;
     x.strokeStyle = 'rgba(0,0,0,.65)';
-    const label = `ОЦЕНКА ${grade}/10`;
+    const label = `${gradeReaction(grade).label} ${grade}/10`;
     x.strokeText(label, w - 16, 16);
     x.fillStyle = '#ffd93d';
     x.fillText(label, w - 16, 16);
