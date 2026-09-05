@@ -274,8 +274,14 @@
   .btn.next { margin-top:9px; padding:8px 12px; }
 
   /* ---------- Открытые вопросы (MVP) ---------- */
-  #openUi #top .logo { max-width:100%; }
+  #openUi #top { align-items:center; }
+  #openUi #top .logo { max-width:58%; }
   #openScore { padding:7px 9px; color:var(--paper); background:var(--ink); border:3px solid var(--paper); font-size:12px; font-weight:900; opacity:1; text-shadow:none; transform:rotate(1deg); }
+  #exitRoundBtn {
+    flex:0 0 34px; width:34px; height:34px; padding:0; margin:0; color:var(--paper);
+    background:var(--red); border:3px solid var(--ink); border-radius:3px;
+    box-shadow:3px 3px 0 var(--ink); font-size:17px; font-weight:1000; cursor:pointer;
+  }
   #openScore b { color:var(--yellow); }
   #openNum { display:inline-block; margin:-30px 0 9px -5px; padding:5px 9px; color:var(--paper); background:var(--red); border:3px solid var(--ink); font-size:10px; box-shadow:3px 3px 0 var(--ink); transform:rotate(-2deg); }
   #situationText { color:var(--ink); font-size:18px; line-height:1.3; font-weight:800; letter-spacing:-.25px; margin-bottom:8px; }
@@ -318,9 +324,10 @@
   <div id="top">
     <div class="logo">🎤 Кринж-баттл <span>• Открытые вопросы</span></div>
     <div id="openScore">Рейтинг: <b>0</b></div>
+    <button id="exitRoundBtn" aria-label="Выйти из раунда" title="Выйти из раунда">✕</button>
   </div>
   <div id="progressWrap"><div id="openProgress"></div></div>
-  <div id="card">
+  <div id="card" class="openCard">
     <div id="openNum">Ситуация 1 из 5</div>
     <div id="situationText">…</div>
     <div class="openAnswerBox" id="openAnswerBox">
@@ -1944,28 +1951,36 @@
     const elapsed = performance.now() - t0;
     if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
     loader.classList.remove('show');
-    openSum += judge.grade;
     lastOpenResult = { situation: s.d, answer: text, grade: judge.grade, cringe: judge.cringe };
-    document.getElementById('openScore').innerHTML = `Рейтинг: <b>${openSum}</b>`;
-    // быстрый обратный отсчёт → селфи с оценкой
+    // Оценка задаёт реакцию, затем карточка исчезает на время чистого селфи.
     await runScoreCountdown(judge);
+    openSum += judge.grade;
+    document.getElementById('openScore').innerHTML = `Рейтинг: <b>${openSum}</b>`;
     showScoreBlock(judge);
   }
 
   function runScoreCountdown(judge) {
     return new Promise(resolve => {
       const good = judge.grade >= 7;
+      const openCard = document.querySelector('#openUi .openCard');
       showPoseCue(`ОЦЕНКА ${judge.grade}`, good ? 'good' : 'bad');
       beep(good ? 880 : 180, .12, 'square', .1);
-      setTimeout(() => { showPoseCue('2', 'count'); beep(430, .08, 'square', .08); }, 420);
+      setTimeout(() => {
+        openCard.classList.add('hidden');
+        showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
+      }, 420);
       setTimeout(() => { showPoseCue('1', 'count'); beep(560, .08, 'square', .09); }, 1040);
       setTimeout(async () => {
         showPoseCue('ЩЁЛК!', 'snap'); beep(1050, .07, 'square', .12);
-        if (good) freezeFrame(true); else startRain();
-        await waitForPortraitLayers();
-        captureOpenShot(judge.grade);
-        hidePoseCue();
-        resolve();
+        try {
+          if (good) freezeFrame(true); else startRain();
+          await waitForPortraitLayers();
+          captureOpenShot(judge.grade);
+        } finally {
+          hidePoseCue();
+          openCard.classList.remove('hidden');
+          resolve();
+        }
       }, 1660);
     });
   }
@@ -2156,6 +2171,23 @@
     openIndex++;
     if (openIndex >= OPEN_TOTAL) finishOpen();
     else nextSituation();
+  };
+  document.getElementById('exitRoundBtn').onclick = () => {
+    if (!confirm('Выйти из раунда? Текущий прогресс не сохранится.')) return;
+    try { speechSynthesis.cancel(); } catch (e) {}
+    clearRecTimer();
+    if (rec) {
+      rec.onend = null; rec.onerror = null;
+      try { rec.abort(); } catch (e) {}
+      rec = null;
+    }
+    stopFx();
+    stopCamera();
+    document.getElementById('openUi').classList.add('hidden');
+    endScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    setStartPending(false);
+    setStartModelState(segmenter ? 'ready' : 'error');
   };
   document.getElementById('againBtn').onclick = () => { if (openMode) startOpenGame(); else startGame(); };
 
