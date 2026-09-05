@@ -378,6 +378,7 @@
   </div>
   <button class="btn hidden" id="startBtn">▶ Играть</button>
   <button class="btn" id="openBtn">▶ Начать баттл</button>
+  <button class="btn secondary" id="noCamBtn">Играть без камеры</button>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
@@ -449,6 +450,7 @@
   const shareBtn = document.getElementById('shareBtn');
   const startBtn = document.getElementById('startBtn');
   const openBtn = document.getElementById('openBtn');
+  const noCamBtn = document.getElementById('noCamBtn');
   const modelHint = document.getElementById('modelHint');
   const startMusic = document.getElementById('startMusic');
   const aiStatus = document.getElementById('aiStatus');
@@ -610,7 +612,7 @@
       camOffBtn.classList.remove('hidden');
       return true;
     } catch (e) {
-      alert('Не удалось включить камеру: ' + e.message);
+      dbgLog('camera-unavailable', { err: String(e) });
       return false;
     }
   }
@@ -646,6 +648,13 @@
 
   async function runPoseCountdown(correct) {
     showPoseCue(correct ? 'ВЕРНО!' : 'МИМО!', correct ? 'good' : 'bad');
+    if (!stream) {
+      await wait(520);
+      if (correct) freezeFrame(true); else startRain();
+      await wait(260);
+      hidePoseCue();
+      return;
+    }
     await wait(480);
     showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
     await wait(620);
@@ -668,10 +677,34 @@
       // зеркалим и кадрируем точно так же, как video с object-fit: cover
       drawCover(c, video, w, h, true);
     } else {
-      c.fillStyle = '#1a1a2e';
-      c.fillRect(0, 0, w, h);
+      drawCameraFreeCard(c, w, h);
     }
     return s;
+  }
+
+  function drawCameraFreeCard(c, w, h) {
+    c.fillStyle = '#fff8df'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#19d9ff'; c.fillRect(0, 0, w, h * .17);
+    c.fillStyle = '#ffe34f';
+    c.beginPath(); c.moveTo(0, h * .72); c.lineTo(w, h * .55); c.lineTo(w, h); c.lineTo(0, h); c.closePath(); c.fill();
+    c.save(); c.globalAlpha = .2; c.fillStyle = '#090611';
+    for (let y = 12; y < h; y += 18) for (let x = 10 + (y % 36 ? 9 : 0); x < w; x += 18) {
+      c.beginPath(); c.arc(x, y, 2.2, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+    c.strokeStyle = '#090611'; c.lineWidth = 8; c.strokeRect(12, 12, w - 24, h - 24);
+    c.fillStyle = '#090611'; c.textAlign = 'center'; c.textBaseline = 'top';
+    c.font = `900 ${Math.min(25, w * .064)}px sans-serif`;
+    c.fillText('БАТТЛ БЕЗ КАМЕРЫ', w / 2, h * .25);
+    const situation = openMode && lastOpenResult ? lastOpenResult.situation : (QUESTIONS[qIndex] && QUESTIONS[qIndex].q) || '';
+    const answer = openMode && lastOpenResult ? lastOpenResult.answer : 'РЕАКЦИЯ ЗАСЧИТАНА';
+    c.font = `800 ${Math.min(17, w * .043)}px sans-serif`;
+    const situationLines = wrapText(c, situation, w - 64).slice(0, 4);
+    situationLines.forEach((line, i) => c.fillText(line, w / 2, h * .34 + i * 23));
+    c.fillStyle = '#ff3b4f'; c.fillRect(w * .1, h * .5, w * .8, 5);
+    c.fillStyle = '#090611'; c.font = `900 ${Math.min(19, w * .048)}px sans-serif`;
+    const answerLines = wrapText(c, `«${answer}»`, w - 72).slice(0, 4);
+    answerLines.forEach((line, i) => c.fillText(line, w / 2, h * .55 + i * 25));
   }
 
   function setStartModelState(state) {
@@ -1145,7 +1178,7 @@
     video.style.visibility = 'hidden'; // живое видео прячем — остаётся стоп-кадр
     dbgLog('freezeFrame', { reactionTier, videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
-    layerRevealAt = 0;
+    layerRevealAt = stream ? 0 : performance.now();
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
@@ -1215,7 +1248,7 @@
     video.style.visibility = 'hidden';
     dbgLog('startFailure', { mode: failureMode, videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
-    layerRevealAt = 0;
+    layerRevealAt = stream ? 0 : performance.now();
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
     makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
@@ -2009,6 +2042,21 @@
       const openCard = document.querySelector('#openUi .openCard');
       showPoseCue(`${reaction.label} ${judge.grade}`, reaction.tone);
       beep(reaction.beep, .12, 'square', .1);
+      if (!stream) {
+        setTimeout(async () => {
+          openCard.classList.add('hidden');
+          try {
+            if (reaction.key === 'bad') startRain(); else freezeFrame(reaction.key);
+            await waitForPortraitLayers();
+            captureOpenShot(judge.grade);
+          } finally {
+            hidePoseCue();
+            openCard.classList.remove('hidden');
+            resolve();
+          }
+        }, 620);
+        return;
+      }
       setTimeout(() => {
         openCard.classList.add('hidden');
         showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
@@ -2030,6 +2078,7 @@
   }
 
   function waitForPortraitLayers(timeout = 2500) {
+    if (!stream) return Promise.resolve();
     const started = performance.now();
     return new Promise(resolve => {
       const poll = () => {
@@ -2144,6 +2193,7 @@
     startPending = pending;
     startBtn.disabled = pending;
     openBtn.disabled = pending;
+    noCamBtn.disabled = pending;
     if (pending) { startBtn.textContent = label; openBtn.textContent = label; }
   }
 
@@ -2159,10 +2209,7 @@
     startBtn.textContent = '◌ Включаем камеру…';
     const ok = await startCamera();
     if (!ok) {
-      setStartPending(false);
-      setStartModelState('ready');
-      modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
-      return;
+      modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
     }
     startScreen.classList.add('hidden');
     stopMenuMusic();
@@ -2182,10 +2229,7 @@
     openBtn.textContent = '◌ Включаем камеру…';
     const ok = await startCamera();
     if (!ok) {
-      setStartPending(false);
-      setStartModelState('ready');
-      modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
-      return;
+      modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
     }
     startScreen.classList.add('hidden');
     stopMenuMusic();
@@ -2196,6 +2240,22 @@
       playMenuMusic();
       setStartPending(false);
       setStartModelState('ready');
+    }
+  };
+
+  noCamBtn.onclick = async () => {
+    if (startPending) return;
+    openMode = true;
+    setStartPending(true, '◌ Загружаем игру…');
+    stopCamera();
+    startScreen.classList.add('hidden');
+    stopMenuMusic();
+    const started = await startOpenGame();
+    if (!started) {
+      startScreen.classList.remove('hidden');
+      playMenuMusic();
+      setStartPending(false);
+      setStartModelState(segmenter ? 'ready' : 'error');
     }
   };
 
@@ -2314,7 +2374,18 @@
       dbgLog('share-error', { err: String(e) });
     }
   };
-  camOffBtn.onclick = () => { stopCamera(); camOffBtn.textContent = camOffBtn.textContent.includes('🚫') ? '📷 Камера' : '🚫 Камера'; };
+  camOffBtn.onclick = async () => {
+    if (stream) {
+      stopCamera();
+      camOffBtn.classList.remove('hidden');
+      camOffBtn.textContent = '📷 Камера';
+      return;
+    }
+    camOffBtn.textContent = '◌ Камера…';
+    const ok = await startCamera();
+    camOffBtn.classList.remove('hidden');
+    camOffBtn.textContent = ok ? '🚫 Камера' : '📷 Камера';
+  };
 
 })();
 </script>
