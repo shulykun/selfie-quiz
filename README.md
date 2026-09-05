@@ -41,12 +41,19 @@
 
 ```
 index.html                     — весь квиз (один файл, vanilla JS)
+server_data/cringe_task_base.xlsx — приватная серверная база ситуаций (не коммитится)
 vendor/tasks/                  — MediaPipe Tasks (хостится локально, без CDN)
   vision_bundle.mjs
   wasm/vision_wasm_internal.wasm
   wasm/vision_wasm_nosimd_internal.wasm
   selfie_segmenter.tflite
 ```
+
+Backend читает путь из `CRINGE_TASK_BASE` (по умолчанию
+`server_data/cringe_task_base.xlsx`). В игровой пул попадают уникальные записи
+с `active = 1`, `paid = 0` и минимальным возрастом не выше 12 лет. Клиент получает
+только 5 случайных ситуаций на раунд через `/quiz/api/situations`; Excel и полный
+пул нельзя размещать в каталоге статической раздачи.
 
 Модель и WASM лежат рядом с проектом, чтобы не зависеть от CDN (в РФ
 jsdelivr/unpkg периодически блокируются).
@@ -72,6 +79,7 @@ DEEPSEEK_TOKEN=... python3 quiz_judge_api.py
 
 Локальная страница обращается к `http://127.0.0.1:8003/judge`. В production
 используется `/quiz/api/judge`; этот путь нужно проксировать на тот же Flask-сервис.
+Маршрут `/quiz/api/situations` также должен проксироваться на Flask-сервис.
 Сервис ограничивает тело запроса до 16 КБ и по умолчанию принимает не более
 10 оценок в минуту с одного адреса (`QUIZ_JUDGE_RATE_LIMIT`). Если перед сервисом
 стоит доверенный reverse proxy, передавайте `X-Forwarded-For` и включите

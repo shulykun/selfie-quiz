@@ -9,6 +9,7 @@ DeepSeek-токен берётся из TokenStore (зашифрованная �
 """
 import json
 import os
+import random
 import sys
 import threading
 import time
@@ -18,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask, request, jsonify
 import requests
+from openpyxl import load_workbook
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
@@ -25,24 +27,74 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 PORT = int(os.environ.get("QUIZ_JUDGE_PORT", "8003"))
 ALLOWED_ORIGIN = os.environ.get("QUIZ_JUDGE_ORIGIN", "")
 RATE_LIMIT = int(os.environ.get("QUIZ_JUDGE_RATE_LIMIT", "10"))
+SITUATION_RATE_LIMIT = int(os.environ.get("QUIZ_SITUATION_RATE_LIMIT", "6"))
 TRUST_PROXY = os.environ.get("QUIZ_JUDGE_TRUST_PROXY", "").lower() in {"1", "true", "yes"}
 RATE_WINDOW_SECONDS = 60
+SITUATION_RATE_WINDOW_SECONDS = 60 * 60
+TASK_BASE_PATH = os.environ.get(
+    "CRINGE_TASK_BASE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_data", "cringe_task_base.xlsx"),
+)
 _request_times = defaultdict(deque)
 _rate_lock = threading.Lock()
+_situations = None
+_situations_mtime = None
+_situations_lock = threading.Lock()
 
 
-def is_rate_limited(client_id: str) -> bool:
+def is_rate_limited(client_id: str, scope="judge", limit=RATE_LIMIT, window=RATE_WINDOW_SECONDS) -> bool:
     """Small single-process guard; use a shared proxy limit when scaling workers."""
     now = time.monotonic()
-    cutoff = now - RATE_WINDOW_SECONDS
+    cutoff = now - window
     with _rate_lock:
-        timestamps = _request_times[client_id]
+        timestamps = _request_times[(scope, client_id)]
         while timestamps and timestamps[0] <= cutoff:
             timestamps.popleft()
-        if len(timestamps) >= RATE_LIMIT:
+        if len(timestamps) >= limit:
             return True
         timestamps.append(now)
         return False
+
+
+def get_client_id():
+    client_id = request.remote_addr or "unknown"
+    if TRUST_PROXY:
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        if forwarded_for:
+            client_id = forwarded_for.split(",", 1)[0].strip() or client_id
+    return client_id
+
+
+def load_situations():
+    """Load the private workbook and cache only eligible task text in server memory."""
+    global _situations, _situations_mtime
+    mtime = os.path.getmtime(TASK_BASE_PATH)
+    with _situations_lock:
+        if _situations is not None and _situations_mtime == mtime:
+            return _situations
+        workbook = load_workbook(TASK_BASE_PATH, read_only=True, data_only=True)
+        sheet = workbook.active
+        headers = {str(cell.value): idx for idx, cell in enumerate(next(sheet.iter_rows())) if cell.value}
+        required = {"description", "age", "active", "paid"}
+        if not required.issubset(headers):
+            raise ValueError(f"task base is missing columns: {sorted(required - set(headers))}")
+        tasks = []
+        seen = set()
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            description = " ".join(str(row[headers["description"]] or "").split())
+            age = int(row[headers["age"]] or 0)
+            active = int(row[headers["active"]] or 0)
+            paid = int(row[headers["paid"]] or 0)
+            if not description or description in seen or active != 1 or paid != 0 or age > 12:
+                continue
+            seen.add(description)
+            tasks.append(description)
+        workbook.close()
+        if len(tasks) < 5:
+            raise ValueError("task base contains fewer than five eligible situations")
+        _situations = tasks
+        _situations_mtime = mtime
+        return _situations
 
 
 @app.after_request
@@ -54,7 +106,7 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
 
@@ -144,11 +196,7 @@ def judge(situation: str, answer: str) -> dict:
 def judge_route():
     if request.method == "OPTIONS":
         return ("", 204)
-    client_id = request.remote_addr or "unknown"
-    if TRUST_PROXY:
-        forwarded_for = request.headers.get("X-Forwarded-For", "")
-        if forwarded_for:
-            client_id = forwarded_for.split(",", 1)[0].strip() or client_id
+    client_id = get_client_id()
     if is_rate_limited(client_id):
         return jsonify({"error": "rate limit exceeded"}), 429
     data = request.get_json(silent=True) or {}
@@ -162,6 +210,27 @@ def judge_route():
     result["situation"] = situation
     result["answer"] = answer
     return jsonify(result)
+
+
+@app.route("/situations", methods=["GET"])
+@app.route("/quiz/api/situations", methods=["GET"])
+def situations_route():
+    client_id = get_client_id()
+    if is_rate_limited(
+        client_id,
+        scope="situations",
+        limit=SITUATION_RATE_LIMIT,
+        window=SITUATION_RATE_WINDOW_SECONDS,
+    ):
+        return jsonify({"error": "rate limit exceeded"}), 429
+    try:
+        situations = random.sample(load_situations(), 5)
+    except Exception as e:
+        print(f"[situations] load error: {e}", flush=True)
+        return jsonify({"error": "situations unavailable"}), 503
+    response = jsonify({"situations": [{"d": text} for text in situations]})
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
 
 
 @app.route("/health", methods=["GET"])
