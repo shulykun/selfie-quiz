@@ -340,28 +340,13 @@
     .endBtns { flex-wrap:nowrap; gap:8px; margin-top:10px; }
     .endBtns .btn { flex:1 1 0; min-width:0; margin-top:0; padding:9px 4px; font-size:11px; line-height:1.2; border-width:3px; box-shadow:4px 5px 0 var(--ink); white-space:nowrap; text-align:center; }
   }
-  /* Правила игры: маленькая ссылка на старте + модалка */
+  /* Правила игры: маленькая ссылка на старте (открывает cringe.roborumba.com/rules) */
   #rulesLink {
-    margin-top:auto; padding:8px 10px 2px; background:none; border:none;
+    margin-top:auto; padding:8px 10px 2px; display:inline-block;
     color:var(--ink); font:800 12px/1 ui-monospace,monospace; letter-spacing:.6px;
     text-decoration:underline dotted; text-underline-offset:3px; opacity:.75; cursor:pointer;
   }
   #rulesLink:active { opacity:1; }
-  #rulesModal {
-    position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
-    padding:20px; background:rgba(9,6,17,.55); backdrop-filter:blur(3px);
-  }
-  #rulesModal .rulesBox {
-    width:min(100%,420px); max-height:80vh; overflow-y:auto; padding:22px 20px 18px; text-align:left;
-    color:var(--ink); background:var(--paper); border:4px solid var(--ink); border-radius:6px;
-    box-shadow:9px 10px 0 var(--ink); transform:rotate(-.3deg);
-  }
-  #rulesModal .rulesTitle {
-    color:var(--paper); font-size:24px; font-weight:1000; letter-spacing:-1px; text-transform:uppercase;
-    -webkit-text-stroke:5px var(--ink); paint-order:stroke fill; text-align:center; margin-bottom:14px;
-  }
-  #rulesModal ol { margin:0 0 16px; padding-left:22px; display:grid; gap:8px; font-size:14px; font-weight:700; line-height:1.4; }
-  #rulesClose { display:block; margin:0 auto; }
 </style>
 </head>
 <body>
@@ -428,22 +413,7 @@
   <button class="btn hidden" id="startBtn">▶ Играть</button>
   <button class="btn" id="openBtn">▶ Начать баттл</button>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
-  <button id="rulesLink" type="button">Правила игры</button>
-</div>
-
-<div id="rulesModal" class="hidden">
-  <div class="rulesBox">
-    <div class="rulesTitle">📜 Правила игры</div>
-    <ol>
-      <li>Тебе зачитывают 5 неловких ситуаций.</li>
-      <li>Ответь голосом или текстом: что именно скажешь или сделаешь.</li>
-      <li>ИИ-жюри оценит ответ: качество выхода (grade) и добавленный кринж (cringe) — от 1 до 10.</li>
-      <li>После вердикта — поза для селфи: 2… 1… ЩЁЛК!</li>
-      <li>Максимум за раунд — 50 очков. Средний балл 6+ — победа.</li>
-      <li>В финале выбери лучшее фото и поделись карточкой.</li>
-    </ol>
-    <button id="rulesClose" class="btn small">Понятно</button>
-  </div>
+  <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
 
@@ -2471,13 +2441,6 @@
       dbgLog('share-error', { err: String(e) });
     }
   };
-  const rulesModal = document.getElementById('rulesModal');
-  const rulesClose = document.getElementById('rulesClose');
-  document.getElementById('rulesLink').onclick = () => rulesModal.classList.remove('hidden');
-  const closeRules = () => rulesModal.classList.add('hidden');
-  rulesClose.onclick = closeRules;
-  rulesModal.addEventListener('click', (e) => { if (e.target === rulesModal) closeRules(); });
-
   camOffBtn.onclick = async () => {
     if (stream) {
       stopCamera();
