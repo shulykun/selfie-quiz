@@ -36,11 +36,13 @@
 - 🎭 Короткая pose-фаза после оценки ответа: результат → `2` → `1` → `ЩЁЛК!`
 - 📤 Кнопка «Поделиться» (Web Share API + фолбэк-скачивание)
 - 📱 Мобильная адаптация (touch, safe-area, viewport-fit)
+- 🎵 Фоновая музыка на стартовом экране с плавной остановкой перед раундом
 
 ## Структура
 
 ```
 index.html                     — весь квиз (один файл, vanilla JS)
+assets/audio/clown.mp3         — зацикленная музыка стартового экрана
 server_data/cringe_task_base.xlsx — приватная серверная база ситуаций (не коммитится)
 vendor/tasks/                  — MediaPipe Tasks (хостится локально, без CDN)
   vision_bundle.mjs
@@ -112,6 +114,7 @@ DEEPSEEK_TOKEN=... python3 quiz_judge_api.py
 
 ```bash
 sudo cp index.html /var/www/quiz/
+sudo cp -r assets /var/www/quiz/
 sudo cp -r vendor /var/www/quiz/
 # nginx: /etc/nginx/mime.types должен содержать `application/javascript js mjs;`
 ```

@@ -380,6 +380,7 @@
   <button class="btn" id="openBtn">▶ Начать баттл</button>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
 </div>
+<audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
 
 <div id="endScreen" class="hidden">
   <div class="h1" id="endTitle">🎉</div>
@@ -449,6 +450,7 @@
   const startBtn = document.getElementById('startBtn');
   const openBtn = document.getElementById('openBtn');
   const modelHint = document.getElementById('modelHint');
+  const startMusic = document.getElementById('startMusic');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
   const styleLab = document.getElementById('styleLab');
@@ -548,6 +550,34 @@
   let layerRevealAt = 0;
   let currentBgKind = null;
   const renderDpr = Math.min(window.devicePixelRatio || 1, 2);
+  const START_MUSIC_VOLUME = 0.18;
+  let startMusicFade = null;
+
+  function playStartMusic() {
+    if (startScreen.classList.contains('hidden')) return;
+    if (startMusicFade) { clearInterval(startMusicFade); startMusicFade = null; }
+    startMusic.volume = START_MUSIC_VOLUME;
+    startMusic.play().catch(() => {});
+  }
+
+  function stopStartMusic() {
+    if (startMusic.paused) return;
+    if (startMusicFade) clearInterval(startMusicFade);
+    const step = Math.max(startMusic.volume / 6, 0.01);
+    startMusicFade = setInterval(() => {
+      startMusic.volume = Math.max(0, startMusic.volume - step);
+      if (startMusic.volume > 0) return;
+      clearInterval(startMusicFade);
+      startMusicFade = null;
+      startMusic.pause();
+      startMusic.currentTime = 0;
+      startMusic.volume = START_MUSIC_VOLUME;
+    }, 40);
+  }
+
+  playStartMusic();
+  document.addEventListener('pointerdown', playStartMusic, { once:true });
+  document.addEventListener('keydown', playStartMusic, { once:true });
 
   // Рисуем как CSS object-fit: cover, без растягивания лица и тела.
   function drawCover(target, source, w, h, mirror = false) {
@@ -2117,6 +2147,7 @@
 
   startBtn.onclick = async () => {
     if (startPending) return;
+    playStartMusic();
     openMode = false;
     setStartPending(true, '◌ Загружаем игру…');
     if (!segmenter) {
@@ -2132,11 +2163,13 @@
       return;
     }
     startScreen.classList.add('hidden');
+    stopStartMusic();
     startGame();
   };
 
   openBtn.onclick = async () => {
     if (startPending) return;
+    playStartMusic();
     openMode = true;
     setStartPending(true, '◌ Загружаем игру…');
     if (!segmenter) {
@@ -2153,10 +2186,12 @@
       return;
     }
     startScreen.classList.add('hidden');
+    stopStartMusic();
     const started = await startOpenGame();
     if (!started) {
       stopCamera();
       startScreen.classList.remove('hidden');
+      playStartMusic();
       setStartPending(false);
       setStartModelState('ready');
     }
@@ -2205,6 +2240,7 @@
     document.getElementById('openUi').classList.add('hidden');
     endScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
+    playStartMusic();
     setStartPending(false);
     setStartModelState(segmenter ? 'ready' : 'error');
   };
