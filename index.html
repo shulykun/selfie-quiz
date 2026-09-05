@@ -77,12 +77,17 @@
   }
   @keyframes spin { to { transform:rotate(360deg); } }
   #judgeLoader .loaderText { font-size:15px; font-weight:900; text-transform:uppercase; letter-spacing:1.5px; }
-  #scoreBlock { margin-top:10px; padding-top:10px; border-top:3px dashed rgba(9,6,17,.3); text-align:center; }
+  #scoreBlock { margin-top:6px; padding-top:6px; border-top:3px dashed rgba(9,6,17,.3); text-align:center; }
   #scoreBig {
     font:1000 clamp(56px,16vw,110px)/.9 Impact,Arial Black,sans-serif; color:var(--yellow);
     -webkit-text-stroke:5px var(--ink); paint-order:stroke fill; letter-spacing:-2px; margin-bottom:4px;
   }
   #verdictText { margin-top:8px; padding:8px 10px; border:3px solid var(--ink); background:#fff; border-radius:4px; font-size:14px; font-weight:800; line-height:1.35; text-align:left; }
+  .scoreActions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .scoreActions .btn {
+    width:100%; min-height:42px; margin:0; padding:7px 8px; font-size:11px;
+    line-height:1.1; white-space:nowrap; box-shadow:3px 4px 0 var(--ink);
+  }
   .show { opacity:1 !important; }
 
   #startScreen, #endScreen {
@@ -299,6 +304,12 @@
   .startPromise { display:grid; gap:7px; width:min(100%,360px); margin-top:2px; }
   .startPromise div { display:flex; align-items:center; gap:9px; text-align:left; }
   .startPromise b { display:grid; place-items:center; flex:0 0 29px; height:29px; color:var(--paper); background:var(--red); border:2px solid var(--ink); }
+  @media (max-width:360px), (max-height:650px) {
+    #scoreBig { font-size:48px; margin-bottom:0; }
+    .scoreActions { gap:6px; margin-top:5px; }
+    .scoreActions .btn { min-height:40px; padding:6px 4px; font-size:10px; }
+    #verdictText { margin-top:6px; padding:6px 8px; font-size:12px; }
+  }
 </style>
 </head>
 <body>
@@ -344,10 +355,12 @@
     </div>
     <div id="scoreBlock" class="hidden">
       <div id="scoreBig">7/10</div>
-      <button id="verdictToggle" class="btn small secondary">📖 Вердикт</button>
+      <div class="scoreActions">
+        <button id="verdictToggle" class="btn small secondary">📖 Вердикт</button>
+        <button id="openNextBtn" class="btn next hidden">Дальше →</button>
+      </div>
       <div id="verdictText" class="hidden"></div>
     </div>
-    <button id="openNextBtn" class="btn next hidden">Дальше →</button>
   </div>
 </div>
 <div id="judgeLoader" class="flash"><div class="loaderBox"><div class="spinner"></div><div class="loaderText">Жюри оценивает твой ответ…</div></div></div>
@@ -1958,7 +1971,7 @@
     document.getElementById('openAnswerBox').classList.add('hidden');
     document.getElementById('scoreBlock').classList.remove('hidden');
     const nb = document.getElementById('openNextBtn');
-    nb.textContent = (openIndex >= OPEN_TOTAL - 1) ? 'Узнать результат 🏁' : 'Дальше →';
+    nb.textContent = (openIndex >= OPEN_TOTAL - 1) ? 'Результат 🏁' : 'Дальше →';
     nb.classList.remove('hidden');
   }
 
