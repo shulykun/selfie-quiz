@@ -106,8 +106,95 @@ DEEPSEEK_TOKEN=... python3 quiz_judge_api.py
 
 ## Деплой на сервер
 
+### 1. Статическая часть
+
+В публичный web-root копируются только интерфейс и ресурсы MediaPipe:
+
 ```bash
 sudo cp index.html /var/www/quiz/
 sudo cp -r vendor /var/www/quiz/
 # nginx: /etc/nginx/mime.types должен содержать `application/javascript js mjs;`
 ```
+
+Не копируйте в `/var/www`, public, static или другой публичный каталог файлы
+`cringe_task_base.xlsx`, `server_data/` и любые выгрузки полной базы.
+
+### 2. Приватная база ситуаций
+
+Положите Excel в каталог, который не обслуживается nginx, например:
+
+```bash
+sudo install -d -m 750 /srv/selfie-cringe/private
+sudo install -m 640 server_data/cringe_task_base.xlsx \
+  /srv/selfie-cringe/private/cringe_task_base.xlsx
+```
+
+Пользователь, от которого запускается Flask-сервис, должен иметь право читать
+этот файл. Excel исключён из Git, поэтому его нужно передавать на сервер отдельно
+через защищённый канал.
+
+### 3. Настройки backend
+
+Перед запуском сервиса задайте переменные окружения:
+
+```bash
+export DEEPSEEK_TOKEN='...'
+export CRINGE_TASK_BASE='/srv/selfie-cringe/private/cringe_task_base.xlsx'
+export QUIZ_JUDGE_ORIGIN='https://example.com'
+export QUIZ_JUDGE_TRUST_PROXY=1
+export QUIZ_JUDGE_RATE_LIMIT=10
+export QUIZ_SITUATION_RATE_LIMIT=6
+python3 quiz_judge_api.py
+```
+
+Секреты лучше хранить в environment-файле с правами `600`, а не в репозитории
+или unit-файле. `QUIZ_JUDGE_TRUST_PROXY=1` разрешён только когда Flask недоступен
+из интернета напрямую и весь трафик проходит через доверенный reverse proxy.
+
+### 4. Проксирование API в nginx
+
+```nginx
+location = /quiz/api/judge {
+    client_max_body_size 16k;
+    proxy_pass http://127.0.0.1:8003/judge;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location = /quiz/api/situations {
+    proxy_pass http://127.0.0.1:8003/situations;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+# Дополнительная страховка от случайной публикации таблиц.
+location ~* \.(xlsx|xls)$ {
+    return 404;
+}
+```
+
+После изменения конфигурации проверьте и перезагрузите nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 5. Проверка приватности и работоспособности
+
+```bash
+# Backend запущен и отвечает локально.
+curl http://127.0.0.1:8003/health
+
+# Клиент получает только пять ситуаций, а не полную базу.
+curl https://example.com/quiz/api/situations
+
+# Прямое скачивание Excel должно вернуть 404.
+curl -I https://example.com/quiz/server_data/cringe_task_base.xlsx
+curl -I https://example.com/quiz/cringe_task_base.xlsx
+```
+
+Ожидаемый ответ `/health`: `{"ok":true}`. В ответе `/situations` должно быть
+ровно пять элементов. Оба запроса к `.xlsx` должны вернуть `404`.
