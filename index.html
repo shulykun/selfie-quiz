@@ -378,7 +378,6 @@
   </div>
   <button class="btn hidden" id="startBtn">▶ Играть</button>
   <button class="btn" id="openBtn">▶ Начать баттл</button>
-  <button class="btn secondary" id="noCamBtn">Играть без камеры</button>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
@@ -450,7 +449,6 @@
   const shareBtn = document.getElementById('shareBtn');
   const startBtn = document.getElementById('startBtn');
   const openBtn = document.getElementById('openBtn');
-  const noCamBtn = document.getElementById('noCamBtn');
   const modelHint = document.getElementById('modelHint');
   const startMusic = document.getElementById('startMusic');
   const aiStatus = document.getElementById('aiStatus');
@@ -515,6 +513,7 @@
   let sparkles = [];
   let rays = null;      // лучи за головой (японский стиль)
   let popTexts = [];    // слэм-тексты («СУПЕР!», «ОГО!»)
+  let answerCaption = ''; // реплика игрока в speech bubble на стоп-кадре
   let flash = null;     // вспышка экрана
   let roundShots = [];   // лента стоп-кадров раунда
   let effect = null; // 'rain' (failure family) | 'freeze'
@@ -696,15 +695,9 @@
     c.fillStyle = '#090611'; c.textAlign = 'center'; c.textBaseline = 'top';
     c.font = `900 ${Math.min(25, w * .064)}px sans-serif`;
     c.fillText('БАТТЛ БЕЗ КАМЕРЫ', w / 2, h * .25);
-    const situation = openMode && lastOpenResult ? lastOpenResult.situation : (QUESTIONS[qIndex] && QUESTIONS[qIndex].q) || '';
-    const answer = openMode && lastOpenResult ? lastOpenResult.answer : 'РЕАКЦИЯ ЗАСЧИТАНА';
     c.font = `800 ${Math.min(17, w * .043)}px sans-serif`;
-    const situationLines = wrapText(c, situation, w - 64).slice(0, 4);
-    situationLines.forEach((line, i) => c.fillText(line, w / 2, h * .34 + i * 23));
-    c.fillStyle = '#ff3b4f'; c.fillRect(w * .1, h * .5, w * .8, 5);
-    c.fillStyle = '#090611'; c.font = `900 ${Math.min(19, w * .048)}px sans-serif`;
-    const answerLines = wrapText(c, `«${answer}»`, w - 72).slice(0, 4);
-    answerLines.forEach((line, i) => c.fillText(line, w / 2, h * .55 + i * 25));
+    c.fillText('ТВОЯ РЕПЛИКА — ГЛАВНЫЙ КАДР', w / 2, h * .38);
+    c.fillStyle = '#ff3b4f'; c.fillRect(w * .1, h * .48, w * .8, 5);
   }
 
   function setStartModelState(state) {
@@ -1170,6 +1163,7 @@
     const reactionTier = celebration === true ? 'super' : celebration === false ? 'normal' : celebration;
     const reaction = REACTION_TIERS[reactionTier] || REACTION_TIERS.super;
     stopFx();
+    answerCaption = openMode && lastOpenResult ? lastOpenResult.answer : '';
     effect = 'freeze';
     currentReactionTier = reactionTier;
     selectPortraitMode();
@@ -1237,6 +1231,7 @@
 
   function startRain() {
     stopFx();
+    answerCaption = openMode && lastOpenResult ? lastOpenResult.answer : '';
     effect = 'rain';
     currentReactionTier = 'bad';
     if (!failureBag.length) failureBag = shuffle([...FAILURE_MODES]);
@@ -1291,6 +1286,7 @@
     effect = null;
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     rain = []; impactParticles = []; sparkles = []; popTexts = [];
+    answerCaption = '';
     rays = null; flash = null;
     lastFxTime = 0;
     layerRevealAt = 0;
@@ -1405,6 +1401,35 @@
     ctx.strokeText(pt.text, 0, 0);
     ctx.fillStyle = pt.shape === 'tag' ? '#090611' : '#fff8df';
     ctx.fillText(pt.text, 0, 0);
+    ctx.restore();
+  }
+
+  function drawAnswerCaption(ctx, w, h) {
+    if (!answerCaption) return;
+    const raw = answerCaption.length > 120 ? `${answerCaption.slice(0, 117).trim()}…` : answerCaption;
+    const fontSize = Math.min(18, Math.max(14, w * .043));
+    ctx.save();
+    ctx.font = `900 ${fontSize}px sans-serif`;
+    const lines = wrapText(ctx, `«${raw}»`, w - 76).slice(0, 3);
+    if (!lines.length) { ctx.restore(); return; }
+    if (wrapText(ctx, `«${raw}»`, w - 76).length > 3) lines[2] = `${lines[2].replace(/[.…]+$/, '')}…`;
+    const textWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
+    const boxWidth = Math.min(w - 42, textWidth + 34);
+    const lineHeight = fontSize * 1.25;
+    const boxHeight = lines.length * lineHeight + 26;
+    const x = w / 2, y = Math.min(h - boxHeight / 2 - 205, h * .67);
+    ctx.translate(x, y); ctx.rotate(-.018);
+    ctx.fillStyle = '#ff3b4f';
+    ctx.fillRect(-boxWidth / 2 + 7, -boxHeight / 2 + 8, boxWidth, boxHeight);
+    ctx.fillStyle = '#fff8df'; ctx.strokeStyle = '#090611'; ctx.lineWidth = 5; ctx.lineJoin = 'miter';
+    ctx.beginPath();
+    ctx.rect(-boxWidth / 2, -boxHeight / 2, boxWidth, boxHeight);
+    ctx.moveTo(-boxWidth * .22, boxHeight / 2);
+    ctx.lineTo(-boxWidth * .34, boxHeight / 2 + 18);
+    ctx.lineTo(-boxWidth * .05, boxHeight / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#090611'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach((line, i) => ctx.fillText(line, 0, (i - (lines.length - 1) / 2) * lineHeight));
     ctx.restore();
   }
 
@@ -1632,6 +1657,7 @@
         drawPopText(ctx, pt, now > pt.t0 + pt.life ? holdTime : now);
       }
     }
+    drawAnswerCaption(ctx, w, h);
     drawShowChrome(ctx, w, h, effect, performance.now());
     // вспышка экрана (поверх всего)
     if (flash) {
@@ -1773,6 +1799,7 @@
       drawFailureScene(target, w, h, 0, 900);
     }
     for (const pt of popTexts) drawPopText(target, pt, pt.t0 + pt.life * .42);
+    drawAnswerCaption(target, w, h);
     drawShowChrome(target, w, h, effect, 0);
   }
 
@@ -2128,10 +2155,10 @@
     c.width = w; c.height = h;
     const x = c.getContext('2d');
     drawPosterVisual(x, w, h);
-    const plate = x.createLinearGradient(0, h - 200, 0, h);
+    const plate = x.createLinearGradient(0, h - 120, 0, h);
     plate.addColorStop(0, 'rgba(4,2,14,0)');
     plate.addColorStop(1, 'rgba(4,2,14,0.9)');
-    x.fillStyle = plate; x.fillRect(0, h - 200, w, 200);
+    x.fillStyle = plate; x.fillRect(0, h - 120, w, 120);
     const avg = openSum / OPEN_TOTAL;
     x.textAlign = 'center';
     x.textBaseline = 'middle';
@@ -2139,26 +2166,9 @@
     x.lineWidth = 8;
     x.strokeStyle = 'rgba(0,0,0,0.65)';
     const label = `🎯 Рейтинг ${openSum}/${OPEN_TOTAL * 10}`;
-    x.strokeText(label, w / 2, h - 158);
+    x.strokeText(label, w / 2, h - 54);
     x.fillStyle = avg >= 6 ? '#ffd93d' : '#8ab4ff';
-    x.fillText(label, w / 2, h - 158);
-    x.font = '700 15px sans-serif';
-    x.lineWidth = 5;
-    const qLines = wrapText(x, lastOpenResult ? lastOpenResult.situation : '', w - 48);
-    qLines.slice(0, 3).forEach((ln, i) => {
-      x.strokeText(ln, w / 2, h - 116 + i * 20);
-      x.fillStyle = '#ffffff';
-      x.fillText(ln, w / 2, h - 116 + i * 20);
-    });
-    x.font = '700 13px sans-serif';
-    x.lineWidth = 4;
-    const ans = lastOpenResult ? lastOpenResult.answer : '';
-    const aLines = wrapText(x, 'Твой ответ: ' + ans, w - 48).slice(0, 2);
-    aLines.forEach((ln, i) => {
-      x.strokeText(ln, w / 2, h - 52 + i * 18);
-      x.fillStyle = '#ffd93d';
-      x.fillText(ln, w / 2, h - 52 + i * 18);
-    });
+    x.fillText(label, w / 2, h - 54);
     return c;
   }
 
@@ -2183,7 +2193,6 @@
     startPending = pending;
     startBtn.disabled = pending;
     openBtn.disabled = pending;
-    noCamBtn.disabled = pending;
     if (pending) { startBtn.textContent = label; openBtn.textContent = label; }
   }
 
@@ -2191,13 +2200,13 @@
     if (startPending) return;
     playMenuMusic();
     openMode = false;
-    setStartPending(true, '◌ Загружаем игру…');
-    if (!segmenter) {
+    setStartPending(true, '◌ Включаем камеру…');
+    let ok = await startCamera();
+    if (ok && !segmenter) {
+      setStartPending(true, '◌ Загружаем эффекты…');
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) { setStartPending(false); return; }
+      if (!model) { stopCamera(); ok = false; }
     }
-    startBtn.textContent = '◌ Включаем камеру…';
-    const ok = await startCamera();
     if (!ok) {
       modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
     }
@@ -2210,14 +2219,13 @@
     if (startPending) return;
     playMenuMusic();
     openMode = true;
-    setStartPending(true, '◌ Загружаем игру…');
-    if (!segmenter) {
+    setStartPending(true, '◌ Включаем камеру…');
+    let ok = await startCamera();
+    if (ok && !segmenter) {
+      setStartPending(true, '◌ Загружаем эффекты…');
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) { setStartPending(false); return; }
+      if (!model) { stopCamera(); ok = false; }
     }
-    startBtn.textContent = '◌ Включаем камеру…';
-    openBtn.textContent = '◌ Включаем камеру…';
-    const ok = await startCamera();
     if (!ok) {
       modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
     }
@@ -2232,23 +2240,6 @@
       setStartModelState('ready');
     }
   };
-
-  noCamBtn.onclick = async () => {
-    if (startPending) return;
-    openMode = true;
-    setStartPending(true, '◌ Загружаем игру…');
-    stopCamera();
-    startScreen.classList.add('hidden');
-    stopMenuMusic();
-    const started = await startOpenGame();
-    if (!started) {
-      startScreen.classList.remove('hidden');
-      playMenuMusic();
-      setStartPending(false);
-      setStartModelState(segmenter ? 'ready' : 'error');
-    }
-  };
-
   // ---------- Открытые вопросы: управление ----------
   document.getElementById('recBtn').onclick = startRec;
   document.getElementById('stopRecBtn').onclick = stopRec;
