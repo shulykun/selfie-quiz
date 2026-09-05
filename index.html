@@ -313,6 +313,18 @@
     .scoreActions .btn { min-height:40px; padding:6px 4px; font-size:10px; }
     #verdictText { margin-top:6px; padding:6px 8px; font-size:12px; }
   }
+
+  /* Маленькие экраны: компактный финальный экран, чтобы было видно выбор фото */
+  @media (max-width:600px) {
+    #endScreen { padding:54px 14px 26px; }
+    #endScreen .h1 { font-size:clamp(20px,7vw,30px); letter-spacing:-1px; -webkit-text-stroke:4px var(--ink); filter:drop-shadow(3px 4px 0 var(--ink)); margin-bottom:6px; }
+    #endScreen .p { padding:8px 12px; font-size:12px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
+    #roundHero { width:min(100%,240px); max-height:34vh; margin-top:10px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
+    #roundStrip { margin:10px 0 4px; gap:6px; }
+    #roundStrip img { height:88px; border-width:3px; box-shadow:3px 4px 0 var(--ink); }
+    .endBtns { flex-wrap:nowrap; gap:8px; margin-top:10px; }
+    .endBtns .btn { flex:1 1 0; min-width:0; margin-top:0; padding:9px 4px; font-size:11px; line-height:1.2; border-width:3px; box-shadow:4px 5px 0 var(--ink); white-space:nowrap; text-align:center; }
+  }
 </style>
 </head>
 <body>
@@ -389,7 +401,7 @@
   <div id="roundStrip" class="hidden"></div>
   <div class="endBtns">
     <button class="btn" id="againBtn">🔄 Сыграть ещё</button>
-    <button class="btn secondary" id="shareBtn">📤 Создать итоговую карточку</button>
+    <button class="btn secondary" id="shareBtn">📤 Поделиться</button>
   </div>
 </div>
 
@@ -516,6 +528,7 @@
   let answerCaption = ''; // реплика игрока в speech bubble на стоп-кадре
   let flash = null;     // вспышка экрана
   let roundShots = [];   // лента стоп-кадров раунда
+  let selectedShot = null; // выбранный в ленте стоп-кадр (для шаринга)
   let effect = null; // 'rain' (failure family) | 'freeze'
   let currentReactionTier = 'normal';
   const REACTION_TIERS = {
@@ -1819,6 +1832,7 @@
     strip.innerHTML = '';
     const selectShot = (src, thumb) => {
       hero.src = src;
+      selectedShot = src;
       hero.classList.remove('hidden');
       strip.querySelectorAll('img').forEach(img => img.classList.toggle('active', img === thumb));
     };
@@ -2149,26 +2163,68 @@
     return lines;
   }
 
-  function buildOpenShareImage() {
-    const w = window.innerWidth, h = window.innerHeight;
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const x = c.getContext('2d');
-    drawPosterVisual(x, w, h);
-    const plate = x.createLinearGradient(0, h - 120, 0, h);
+  // Нижняя плашка на итоговой карточке: рейтинг + название игры.
+  function drawShareFooter(x, w, h) {
+    const plateH = Math.max(120, Math.min(170, Math.round(h * 0.18)));
+    const plate = x.createLinearGradient(0, h - plateH, 0, h);
     plate.addColorStop(0, 'rgba(4,2,14,0)');
-    plate.addColorStop(1, 'rgba(4,2,14,0.9)');
-    x.fillStyle = plate; x.fillRect(0, h - 120, w, 120);
+    plate.addColorStop(1, 'rgba(4,2,14,0.92)');
+    x.fillStyle = plate; x.fillRect(0, h - plateH, w, plateH);
     const avg = openSum / OPEN_TOTAL;
+    const label = `🎯 Рейтинг ${openSum}/${OPEN_TOTAL * 10}`;
+    const rSize = Math.max(30, Math.min(40, Math.round(w * 0.095)));
+    const tSize = Math.max(18, Math.min(26, Math.round(w * 0.062)));
     x.textAlign = 'center';
     x.textBaseline = 'middle';
-    x.font = '900 34px sans-serif';
+    // название игры
+    x.font = `900 ${tSize}px sans-serif`;
+    x.lineWidth = Math.max(4, Math.round(tSize / 4));
+    x.strokeStyle = 'rgba(0,0,0,0.75)';
+    x.strokeText('БОЙ С КРИНЖЕМ', w / 2, h - 30);
+    x.fillStyle = '#ffffff';
+    x.fillText('БОЙ С КРИНЖЕМ', w / 2, h - 30);
+    // рейтинг
+    x.font = `900 ${rSize}px sans-serif`;
     x.lineWidth = 8;
     x.strokeStyle = 'rgba(0,0,0,0.65)';
-    const label = `🎯 Рейтинг ${openSum}/${OPEN_TOTAL * 10}`;
-    x.strokeText(label, w / 2, h - 54);
+    x.strokeText(label, w / 2, h - 66);
     x.fillStyle = avg >= 6 ? '#ffd93d' : '#8ab4ff';
-    x.fillText(label, w / 2, h - 54);
+    x.fillText(label, w / 2, h - 66);
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = src;
+    });
+  }
+
+  // Итоговая карточка для шаринга: выбранный стоп-кадр + плашка с рейтингом и названием.
+  async function buildOpenShareCanvas() {
+    const src = selectedShot || (roundShots.length ? roundShots[roundShots.length - 1] : null);
+    const c = document.createElement('canvas');
+    let w, h, x;
+    if (src) {
+      let base = null;
+      try { base = await loadImage(src); } catch (e) { base = null; }
+      if (base) {
+        w = base.naturalWidth || window.innerWidth;
+        h = base.naturalHeight || window.innerHeight;
+        c.width = w; c.height = h;
+        x = c.getContext('2d');
+        x.drawImage(base, 0, 0, w, h);
+        drawShareFooter(x, w, h);
+        return c;
+      }
+    }
+    // фолбэк: собрать из текущего состояния канваса
+    w = window.innerWidth; h = window.innerHeight;
+    c.width = w; c.height = h;
+    x = c.getContext('2d');
+    drawPosterVisual(x, w, h);
+    drawShareFooter(x, w, h);
     return c;
   }
 
@@ -2329,7 +2385,7 @@
 
   shareBtn.onclick = async () => {
     try {
-      const img = openMode ? buildOpenShareImage() : buildShareImage();
+      const img = openMode ? await buildOpenShareCanvas() : buildShareImage();
       const blob = await new Promise(res => img.toBlob(res, 'image/png'));
       if (!blob) throw new Error('toBlob failed');
       const file = new File([blob], 'selfie-quiz.png', { type: 'image/png' });
