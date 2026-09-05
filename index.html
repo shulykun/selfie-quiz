@@ -312,11 +312,13 @@
     .scoreActions { gap:6px; margin-top:5px; }
     .scoreActions .btn { min-height:40px; padding:6px 4px; font-size:10px; }
     #verdictText { margin-top:6px; padding:6px 8px; font-size:12px; }
+    #situationText { font-size:14px; }
   }
 
   /* Маленькие экраны: компактный финальный экран, чтобы было видно выбор фото */
   @media (max-width:600px) {
     #endScreen { padding:54px 14px 26px; }
+    #situationText { font-size:15px; line-height:1.4; }
     #endScreen .h1 { font-size:clamp(20px,7vw,30px); letter-spacing:-1px; -webkit-text-stroke:4px var(--ink); filter:drop-shadow(3px 4px 0 var(--ink)); margin-bottom:6px; }
     #endScreen .p { padding:8px 12px; font-size:12px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
     #roundHero { width:min(100%,240px); max-height:34vh; margin-top:10px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
