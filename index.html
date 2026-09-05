@@ -1847,15 +1847,6 @@
   let recTimer = null, recSecondsLeft = 10;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  function speakSituation(text) {
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ru-RU'; u.rate = 1;
-      speechSynthesis.speak(u);
-    } catch (e) { dbgLog('tts-error', { err: String(e) }); }
-  }
-
   async function startOpenGame() {
     openMode = true;
     openIndex = 0; openSum = 0;
@@ -1909,7 +1900,6 @@
     document.getElementById('verdictText').classList.add('hidden');
     document.getElementById('verdictToggle').classList.remove('hidden');
     document.getElementById('confirmBtn').disabled = false;
-    speakSituation(s.d);
   }
 
   function clearRecTimer() {
@@ -2290,7 +2280,6 @@
   };
   document.getElementById('exitRoundBtn').onclick = () => {
     if (!confirm('Выйти из раунда? Текущий прогресс не сохранится.')) return;
-    try { speechSynthesis.cancel(); } catch (e) {}
     clearRecTimer();
     if (rec) {
       rec.onend = null; rec.onerror = null;
