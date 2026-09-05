@@ -10,6 +10,9 @@ DeepSeek-токен берётся из TokenStore (зашифрованная �
 import json
 import os
 import sys
+import threading
+import time
+from collections import defaultdict, deque
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,9 +20,29 @@ from flask import Flask, request, jsonify
 import requests
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
 PORT = int(os.environ.get("QUIZ_JUDGE_PORT", "8003"))
 ALLOWED_ORIGIN = os.environ.get("QUIZ_JUDGE_ORIGIN", "")
+RATE_LIMIT = int(os.environ.get("QUIZ_JUDGE_RATE_LIMIT", "10"))
+TRUST_PROXY = os.environ.get("QUIZ_JUDGE_TRUST_PROXY", "").lower() in {"1", "true", "yes"}
+RATE_WINDOW_SECONDS = 60
+_request_times = defaultdict(deque)
+_rate_lock = threading.Lock()
+
+
+def is_rate_limited(client_id: str) -> bool:
+    """Small single-process guard; use a shared proxy limit when scaling workers."""
+    now = time.monotonic()
+    cutoff = now - RATE_WINDOW_SECONDS
+    with _rate_lock:
+        timestamps = _request_times[client_id]
+        while timestamps and timestamps[0] <= cutoff:
+            timestamps.popleft()
+        if len(timestamps) >= RATE_LIMIT:
+            return True
+        timestamps.append(now)
+        return False
 
 
 @app.after_request
@@ -94,11 +117,20 @@ def judge(situation: str, answer: str) -> dict:
 def judge_route():
     if request.method == "OPTIONS":
         return ("", 204)
+    client_id = request.remote_addr or "unknown"
+    if TRUST_PROXY:
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        if forwarded_for:
+            client_id = forwarded_for.split(",", 1)[0].strip() or client_id
+    if is_rate_limited(client_id):
+        return jsonify({"error": "rate limit exceeded"}), 429
     data = request.get_json(silent=True) or {}
     situation = str(data.get("situation", "")).strip()
     answer = str(data.get("answer", "")).strip()
     if not situation or not answer:
         return jsonify({"error": "situation and answer required"}), 400
+    if len(situation) > 1000 or len(answer) > 2000:
+        return jsonify({"error": "situation or answer is too long"}), 400
     result = judge(situation, answer)
     result["situation"] = situation
     result["answer"] = answer

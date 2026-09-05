@@ -119,6 +119,11 @@
     height:118px; width:auto; border-radius:10px;
     border:2px solid rgba(255,255,255,.25); flex-shrink:0; cursor:pointer;
   }
+  #roundHero {
+    display:block; width:min(100%, 280px); max-height:38vh; margin:16px auto 2px;
+    object-fit:cover; object-position:center; border:4px solid var(--ink); border-radius:4px;
+    box-shadow:7px 8px 0 var(--ink); cursor:pointer;
+  }
   .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
   .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
@@ -246,6 +251,7 @@
   #endScreen .p { flex-shrink:0; }
   #roundStrip { width:100%; margin:18px 0 8px; padding:8px 6px 13px; gap:10px; }
   #roundStrip img { height:132px; border:4px solid var(--ink); border-radius:3px; box-shadow:5px 6px 0 var(--ink); }
+  #roundStrip img.active { border-color:var(--yellow); transform:translateY(-5px); }
   .endBtns { flex-wrap:wrap; justify-content:center; margin-top:14px; padding-bottom:max(16px, env(safe-area-inset-bottom)); }
   .endBtns .btn { padding:12px 18px; font-size:13px; }
   #camOff { top:max(82px, calc(env(safe-area-inset-top) + 68px)); padding:6px 9px; color:var(--paper); background:rgba(9,6,17,.72); border:2px solid var(--paper); border-radius:3px; font-size:10px; font-weight:900; opacity:.75; }
@@ -274,7 +280,7 @@
   #openNum { display:inline-block; margin:-30px 0 9px -5px; padding:5px 9px; color:var(--paper); background:var(--red); border:3px solid var(--ink); font-size:10px; box-shadow:3px 3px 0 var(--ink); transform:rotate(-2deg); }
   #situationText { color:var(--ink); font-size:18px; line-height:1.3; font-weight:800; letter-spacing:-.25px; margin-bottom:8px; }
   .btn.small { margin-top:10px; padding:8px 14px; font-size:12px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
-  .btn.small.secondary { background:var(--paper); }
+  .btn.small.secondary { color:var(--ink); background:var(--paper); }
   .openAnswerBox { margin-top:10px; padding-top:10px; border-top:3px dashed rgba(9,6,17,.3); }
   #recStatus { display:none; font-size:12px; font-weight:900; color:#e5484d; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
   #recStatus.show { display:block; }
@@ -283,6 +289,10 @@
   #answerText { font-size:15px; font-weight:800; line-height:1.35; padding:8px 10px; margin-bottom:6px; border:3px solid var(--ink); background:#fff; border-radius:4px; }
   #answerInput { width:100%; box-sizing:border-box; padding:9px 10px; font-size:14px; font-weight:700; border:3px solid var(--ink); border-radius:4px; background:#fff; color:var(--ink); font-family:inherit; }
   .openBtns { display:flex; gap:8px; flex-wrap:wrap; }
+  #stopRecBtn { color:var(--paper); background:var(--red); }
+  .startPromise { display:grid; gap:7px; width:min(100%,360px); margin-top:2px; }
+  .startPromise div { display:flex; align-items:center; gap:9px; text-align:left; }
+  .startPromise b { display:grid; place-items:center; flex:0 0 29px; height:29px; color:var(--paper); background:var(--red); border:2px solid var(--ink); }
 </style>
 </head>
 <body>
@@ -316,9 +326,11 @@
     <div class="openAnswerBox" id="openAnswerBox">
       <div id="recStatus">🎙 Слушаю…</div>
       <div id="answerText" class="hidden"></div>
-      <input id="answerInput" class="hidden" placeholder="Распознавание недоступно — напиши ответ текстом">
+      <input id="answerInput" class="hidden" placeholder="Напиши, что ты скажешь или сделаешь">
       <div class="openBtns">
         <button id="recBtn" class="btn small">🎙 Говорить</button>
+        <button id="stopRecBtn" class="btn small hidden">■ Закончить</button>
+        <button id="typeBtn" class="btn small secondary">⌨ Написать</button>
         <button id="reRecBtn" class="btn small hidden">🔄 Перезаписать</button>
         <button id="confirmBtn" class="btn small hidden">✅ Подтвердить</button>
       </div>
@@ -335,20 +347,25 @@
 <div id="poseCue" aria-live="assertive"><div class="cue"></div></div>
 
 <div id="startScreen">
-  <div class="h1">📸 Селфи-квиз</div>
-  <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — яркий manga-burst ✦<br>Мимо — новая драматичная сцена каждый раз</div>
-  <button class="btn" id="startBtn">▶ Играть</button>
-  <button class="btn secondary" id="openBtn">🎤 Открытые вопросы</button>
+  <div class="h1">🎤 Кринж-баттл</div>
+  <div class="p startPromise">
+    <div><b>1</b><span>Ответь на неловкую ситуацию</span></div>
+    <div><b>2</b><span>Покажи реакцию на камеру</span></div>
+    <div><b>3</b><span>Получи комикс-селфи и кринж-рейтинг</span></div>
+  </div>
+  <button class="btn hidden" id="startBtn">▶ Играть</button>
+  <button class="btn" id="openBtn">▶ Начать баттл</button>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
 </div>
 
 <div id="endScreen" class="hidden">
   <div class="h1" id="endTitle">🎉</div>
   <div class="p" id="endText"></div>
+  <img id="roundHero" class="hidden" alt="Выбранный стоп-кадр">
   <div id="roundStrip" class="hidden"></div>
   <div class="endBtns">
-    <button class="btn" id="againBtn">🔄 Ещё раз</button>
-    <button class="btn secondary" id="shareBtn">📤 Поделиться</button>
+    <button class="btn" id="againBtn">🔄 Сыграть ещё</button>
+    <button class="btn secondary" id="shareBtn">📤 Создать итоговую карточку</button>
   </div>
 </div>
 
@@ -407,6 +424,7 @@
   const camOffBtn = document.getElementById('camOff');
   const shareBtn = document.getElementById('shareBtn');
   const startBtn = document.getElementById('startBtn');
+  const openBtn = document.getElementById('openBtn');
   const modelHint = document.getElementById('modelHint');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
@@ -437,7 +455,8 @@
   }
 
   function selectPortraitMode() {
-    if (!portraitStyleLocked) portraitStyle = roundPortraitModes[qIndex] || 'manga';
+    const roundIndex = openMode ? openIndex : qIndex;
+    if (!portraitStyleLocked) portraitStyle = roundPortraitModes[roundIndex] || 'manga';
     window.__portraitStyle = portraitStyle;
     canvas.dataset.portraitStyle = portraitStyle;
     syncStyleLab();
@@ -585,17 +604,24 @@
 
   function setStartModelState(state) {
     startBtn.classList.toggle('model-error', state === 'error');
+    openBtn.classList.toggle('model-error', state === 'error');
     if (state === 'loading') {
       startBtn.disabled = true;
       startBtn.textContent = '◌ Загружаем модель…';
+      openBtn.disabled = true;
+      openBtn.textContent = '◌ Загружаем эффекты…';
       modelHint.textContent = 'Подготавливаем визуальные эффекты';
     } else if (state === 'ready') {
       startBtn.disabled = false;
       startBtn.textContent = '▶ Играть';
+      openBtn.disabled = false;
+      openBtn.textContent = '▶ Начать баттл';
       modelHint.textContent = 'MODEL READY // эффекты готовы';
     } else {
       startBtn.disabled = false;
       startBtn.textContent = '↻ Повторить загрузку';
+      openBtn.disabled = false;
+      openBtn.textContent = '↻ Повторить загрузку';
       modelHint.textContent = 'Модель не загрузилась — без неё игра не начнётся';
     }
   }
@@ -1637,12 +1663,19 @@
 
   function renderRoundStrip() {
     const strip = document.getElementById('roundStrip');
+    const hero = document.getElementById('roundHero');
     strip.innerHTML = '';
+    const selectShot = (src, thumb) => {
+      hero.src = src;
+      hero.classList.remove('hidden');
+      strip.querySelectorAll('img').forEach(img => img.classList.toggle('active', img === thumb));
+    };
     roundShots.forEach((src, idx) => {
       const img = document.createElement('img');
       img.src = src;
       img.alt = `Стоп-кадр ${idx + 1}`;
-      img.onclick = () => {
+      img.onclick = () => selectShot(src, img);
+      img.ondblclick = () => {
         const a = document.createElement('a');
         a.href = src;
         a.download = `selfie-quiz-${idx + 1}.jpg`;
@@ -1652,7 +1685,19 @@
       };
       strip.appendChild(img);
     });
-    strip.classList.remove('hidden');
+    if (roundShots.length) {
+      strip.classList.remove('hidden');
+      selectShot(roundShots[roundShots.length - 1], strip.lastElementChild);
+      hero.onclick = () => {
+        const a = document.createElement('a');
+        a.href = hero.src;
+        a.download = 'selfie-quiz-selected.jpg';
+        document.body.appendChild(a); a.click(); a.remove();
+      };
+    } else {
+      hero.classList.add('hidden');
+      strip.classList.add('hidden');
+    }
   }
 
   function startGame() {
@@ -1731,8 +1776,10 @@
   ];
   let openMode = false;
   let openIndex = 0, openSum = 0;
+  let lastOpenResult = null;
   const OPEN_TOTAL = 5;
   let rec = null, recFinal = '';
+  let recTimer = null, recSecondsLeft = 10;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   function speakSituation(text) {
@@ -1747,6 +1794,7 @@
   function startOpenGame() {
     openMode = true;
     openIndex = 0; openSum = 0;
+    lastOpenResult = null;
     roundShots = [];
     document.getElementById('roundStrip').classList.add('hidden');
     stopFx();
@@ -1758,6 +1806,7 @@
   }
 
   function nextSituation() {
+    clearRecTimer();
     stopFx();
     locked = false;
     const s = OPEN_SITUATIONS[openIndex];
@@ -1771,6 +1820,8 @@
     const ai = document.getElementById('answerInput'); ai.classList.add('hidden'); ai.value = '';
     document.getElementById('recStatus').classList.remove('show', 'recording');
     document.getElementById('recBtn').classList.remove('hidden');
+    document.getElementById('stopRecBtn').classList.add('hidden');
+    document.getElementById('typeBtn').classList.remove('hidden');
     document.getElementById('reRecBtn').classList.add('hidden');
     document.getElementById('confirmBtn').classList.add('hidden');
     document.getElementById('openNextBtn').classList.add('hidden');
@@ -1782,11 +1833,30 @@
     speakSituation(s.d);
   }
 
+  function clearRecTimer() {
+    if (recTimer) { clearInterval(recTimer); recTimer = null; }
+  }
+
+  function stopRec() {
+    clearRecTimer();
+    if (rec) { try { rec.stop(); } catch (e) {} }
+  }
+
+  function enableManualAnswer() {
+    stopRec();
+    const ai = document.getElementById('answerInput');
+    ai.classList.remove('hidden');
+    document.getElementById('recBtn').classList.add('hidden');
+    document.getElementById('stopRecBtn').classList.add('hidden');
+    document.getElementById('typeBtn').classList.add('hidden');
+    document.getElementById('reRecBtn').classList.toggle('hidden', !recFinal.trim());
+    document.getElementById('confirmBtn').classList.toggle('hidden', !ai.value.trim() && !recFinal.trim());
+    ai.focus();
+  }
+
   function startRec() {
     if (!SR) {
-      document.getElementById('answerInput').classList.remove('hidden');
-      document.getElementById('recBtn').classList.add('hidden');
-      document.getElementById('confirmBtn').classList.remove('hidden');
+      enableManualAnswer();
       return;
     }
     if (rec) { try { rec.abort(); } catch (e) {} }
@@ -1795,7 +1865,21 @@
     rec.interimResults = true;
     rec.continuous = false;
     const status = document.getElementById('recStatus');
-    rec.onstart = () => { status.classList.add('show', 'recording'); };
+    const beginRecordingUi = () => {
+      if (recTimer) return;
+      recSecondsLeft = 10;
+      status.textContent = `🎙 Слушаю… ${recSecondsLeft}`;
+      status.classList.add('show', 'recording');
+      document.getElementById('recBtn').classList.add('hidden');
+      document.getElementById('stopRecBtn').classList.remove('hidden');
+      clearRecTimer();
+      recTimer = setInterval(() => {
+        recSecondsLeft--;
+        status.textContent = `🎙 Слушаю… ${Math.max(0, recSecondsLeft)}`;
+        if (recSecondsLeft <= 0) stopRec();
+      }, 1000);
+    };
+    rec.onstart = beginRecordingUi;
     rec.onresult = (e) => {
       let interim = '', final = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -1808,15 +1892,26 @@
       at.classList.remove('hidden');
     };
     rec.onend = () => {
+      clearRecTimer();
       status.classList.remove('show', 'recording');
+      document.getElementById('stopRecBtn').classList.add('hidden');
       if (recFinal.trim()) {
         document.getElementById('recBtn').classList.add('hidden');
         document.getElementById('reRecBtn').classList.remove('hidden');
         document.getElementById('confirmBtn').classList.remove('hidden');
+      } else if (document.getElementById('answerInput').classList.contains('hidden')) {
+        document.getElementById('recBtn').classList.remove('hidden');
       }
     };
-    rec.onerror = (e) => { status.classList.remove('show', 'recording'); dbgLog('rec-error', { err: e.error }); };
-    rec.start();
+    rec.onerror = (e) => {
+      status.classList.remove('show', 'recording');
+      dbgLog('rec-error', { err: e.error });
+      enableManualAnswer();
+    };
+    try { rec.start(); beginRecordingUi(); } catch (e) {
+      dbgLog('rec-start-error', { err: String(e) });
+      enableManualAnswer();
+    }
   }
 
   async function submitOpenAnswer() {
@@ -1850,6 +1945,7 @@
     if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
     loader.classList.remove('show');
     openSum += judge.score;
+    lastOpenResult = { situation: s.d, answer: text, score: judge.score };
     document.getElementById('openScore').innerHTML = `Баллы: <b>${openSum}</b>`;
     // быстрый обратный отсчёт → селфи с оценкой
     await runScoreCountdown(judge);
@@ -1950,8 +2046,7 @@
     x.fillText(label, w / 2, h - 158);
     x.font = '700 15px sans-serif';
     x.lineWidth = 5;
-    const s = OPEN_SITUATIONS[openIndex];
-    const qLines = wrapText(x, s ? s.d : '', w - 48);
+    const qLines = wrapText(x, lastOpenResult ? lastOpenResult.situation : '', w - 48);
     qLines.slice(0, 3).forEach((ln, i) => {
       x.strokeText(ln, w / 2, h - 116 + i * 20);
       x.fillStyle = '#ffffff';
@@ -1959,7 +2054,7 @@
     });
     x.font = '700 13px sans-serif';
     x.lineWidth = 4;
-    const ans = document.getElementById('answerText').textContent || document.getElementById('answerInput').value;
+    const ans = lastOpenResult ? lastOpenResult.answer : '';
     const aLines = wrapText(x, 'Твой ответ: ' + ans, w - 48).slice(0, 2);
     aLines.forEach((ln, i) => {
       x.strokeText(ln, w / 2, h - 52 + i * 18);
@@ -1985,16 +2080,27 @@
   }
 
   // ---------- Старт ----------
+  let startPending = false;
+
+  function setStartPending(pending, label = '◌ Включаем камеру…') {
+    startPending = pending;
+    startBtn.disabled = pending;
+    openBtn.disabled = pending;
+    if (pending) { startBtn.textContent = label; openBtn.textContent = label; }
+  }
+
   startBtn.onclick = async () => {
+    if (startPending) return;
     openMode = false;
+    setStartPending(true, '◌ Загружаем игру…');
     if (!segmenter) {
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) return;
+      if (!model) { setStartPending(false); return; }
     }
-    startBtn.disabled = true;
     startBtn.textContent = '◌ Включаем камеру…';
     const ok = await startCamera();
     if (!ok) {
+      setStartPending(false);
       setStartModelState('ready');
       modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
       return;
@@ -2003,16 +2109,19 @@
     startGame();
   };
 
-  document.getElementById('openBtn').onclick = async () => {
+  openBtn.onclick = async () => {
+    if (startPending) return;
     openMode = true;
+    setStartPending(true, '◌ Загружаем игру…');
     if (!segmenter) {
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) return;
+      if (!model) { setStartPending(false); return; }
     }
-    startBtn.disabled = true;
     startBtn.textContent = '◌ Включаем камеру…';
+    openBtn.textContent = '◌ Включаем камеру…';
     const ok = await startCamera();
     if (!ok) {
+      setStartPending(false);
       setStartModelState('ready');
       modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
       return;
@@ -2023,6 +2132,8 @@
 
   // ---------- Открытые вопросы: управление ----------
   document.getElementById('recBtn').onclick = startRec;
+  document.getElementById('stopRecBtn').onclick = stopRec;
+  document.getElementById('typeBtn').onclick = enableManualAnswer;
   document.getElementById('reRecBtn').onclick = () => {
     recFinal = '';
     const at = document.getElementById('answerText');
@@ -2037,7 +2148,7 @@
     document.getElementById('verdictText').classList.toggle('hidden');
   };
   document.getElementById('answerInput').addEventListener('input', () => {
-    document.getElementById('confirmBtn').classList.remove('hidden');
+    document.getElementById('confirmBtn').classList.toggle('hidden', !document.getElementById('answerInput').value.trim());
   });
   document.getElementById('answerInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitOpenAnswer();
