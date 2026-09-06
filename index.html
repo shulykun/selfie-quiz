@@ -20,10 +20,11 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; background:#0b0b12; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#fff; }
-  #cam {
+  #cam, #syntheticCam {
     position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
-    transform:scaleX(-1); z-index:0;
+    z-index:0;
   }
+  #cam { transform:scaleX(-1); }
   #fx { position:fixed; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; }
   #ui { position:fixed; inset:0; z-index:2; display:flex; flex-direction:column; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
   #openUi { position:fixed; inset:0; z-index:2; display:flex; flex-direction:column; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
@@ -124,6 +125,8 @@
   #modelHint { min-height:20px; margin-top:10px; font:800 11px/1.35 ui-monospace,monospace; letter-spacing:.7px; color:#dce9f2; }
   .endBtns { display:flex; gap:10px; margin-top:18px; }
   .endBtns .btn { margin-top:0; }
+  #cameraReplayBtn { flex:1 0 100%; order:-1; background:var(--yellow); }
+  #endScreen.cameraUpsell .endBtns { flex-wrap:wrap; }
   .btn.secondary {
     background:rgba(255,255,255,.12); color:#fff; box-shadow:none;
     border:1px solid rgba(255,255,255,.28);
@@ -439,6 +442,7 @@
 <body>
 
 <video id="cam" playsinline muted autoplay></video>
+<img id="syntheticCam" class="hidden" alt="Персонаж режима без камеры">
 <canvas id="fx"></canvas>
 
 <div id="ui" class="hidden">
@@ -529,6 +533,7 @@
   <img id="roundHero" class="hidden" alt="Выбранный стоп-кадр">
   <div id="roundStrip" class="hidden"></div>
   <div class="endBtns">
+    <button class="btn hidden" id="cameraReplayBtn">📸 Переиграть с камерой</button>
     <button class="btn" id="againBtn">🔄 Сыграть ещё</button>
     <button class="btn secondary" id="shareBtn">📤 Поделиться</button>
   </div>
@@ -577,6 +582,7 @@
   const WIN_SCORE = 4;
 
   const video = document.getElementById('cam');
+  const syntheticCam = document.getElementById('syntheticCam');
   const canvas = document.getElementById('fx');
   const ctx = canvas.getContext('2d');
   const ui = document.getElementById('ui');
@@ -594,6 +600,7 @@
   const startMusic = document.getElementById('startMusic');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
+  const cameraReplayBtn = document.getElementById('cameraReplayBtn');
   const styleLab = document.getElementById('styleLab');
   const query = new URLSearchParams(location.search);
   const landingVariant = ['duel', 'result'].includes(query.get('landing')) ? query.get('landing') : '';
@@ -678,6 +685,8 @@
   function hideSegError() { segError.classList.remove('show'); }
 
   let stream = null;
+  let syntheticCharacterImage = null;
+  let syntheticCharacterPromise = null;
   let score = 0;
   let qIndex = 0;
   let locked = false;
@@ -787,6 +796,7 @@
       // (iOS Safari и часть Android-браузеров) — иначе вместо видео чёрный экран.
       const playPromise = video.play();
       if (playPromise && playPromise.catch) playPromise.catch(e => dbgLog('video-play', { err: String(e) }));
+      syntheticCam.classList.add('hidden');
       camOffBtn.classList.remove('hidden');
       return true;
     } catch (e) {
@@ -798,7 +808,30 @@
   function stopCamera() {
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     video.srcObject = null;
+    syntheticCam.classList.add('hidden');
     camOffBtn.classList.add('hidden');
+  }
+
+  async function prepareSyntheticReaction(reactionKey) {
+    if (stream) { syntheticCharacterImage = null; return; }
+    if (!syntheticCharacterPromise) {
+      syntheticCharacterPromise = Promise.all([
+        loadImage('assets/characters/player-puzzled.png'),
+        loadImage('assets/characters/player-cringe.png'),
+        loadImage('assets/characters/player-joy.png')
+      ]).then(([puzzled, cringe, joy]) => ({ puzzled, cringe, joy })).catch(e => {
+        dbgLog('character-load-error', { err:String(e) });
+        return null;
+      });
+    }
+    const characters = await syntheticCharacterPromise;
+    if (!characters) { syntheticCharacterImage = null; return; }
+    syntheticCharacterImage = reactionKey === 'bad'
+      ? characters.cringe
+      : reactionKey === 'normal' ? characters.puzzled : characters.joy;
+    syntheticCam.src = syntheticCharacterImage.src;
+    syntheticCam.classList.remove('hidden');
+    window.__quizDebug.syntheticReaction = reactionKey;
   }
 
   function beep(freq, dur, type = 'sine', vol = 0.15) {
@@ -854,6 +887,8 @@
     if (video.videoWidth > 0 && video.videoHeight > 0) {
       // зеркалим и кадрируем точно так же, как video с object-fit: cover
       drawCover(c, video, w, h, true);
+    } else if (syntheticCharacterImage) {
+      drawCover(c, syntheticCharacterImage, w, h, false);
     } else {
       drawCameraFreeCard(c, w, h);
     }
@@ -944,7 +979,8 @@
   // без фолбэка: ждём до 20с, иначе { mask: null, error }
   function makeMask() {
     return new Promise(resolve => {
-      if (!video.videoWidth) return resolve(null);
+      const useSynthetic = !stream && syntheticCharacterImage && snapshot;
+      if (!video.videoWidth && !useSynthetic) return resolve(null);
       const t0 = Date.now();
       let done = false;
       let deadline = null;
@@ -968,7 +1004,7 @@
         const scale = Math.min(1, 640 / Math.max(vw, vh));
         c.width = Math.max(1, Math.round(vw * scale));
         c.height = Math.max(1, Math.round(vh * scale));
-        drawCover(c.getContext('2d'), video, c.width, c.height, false);
+        drawCover(c.getContext('2d'), useSynthetic ? snapshot : video, c.width, c.height, false);
         let p = null;
         try { p = segmenter.segment(c); } catch (e) {
           window.__quizDebug.segError = String(e);
@@ -1265,7 +1301,7 @@
     const box = segMask.__subject;
     subjectAnchor = box ? {
       // Маска ниже зеркалится, поэтому X тоже отражаем.
-      x: w * (1 - ((box.minX + box.maxX) / 2) / segMask.width),
+      x: w * (stream ? 1 - ((box.minX + box.maxX) / 2) / segMask.width : ((box.minX + box.maxX) / 2) / segMask.width),
       y: h * Math.max(0.2, box.minY / segMask.height + 0.12),
       width: w * (box.maxX - box.minX) / segMask.width
     } : { x: w / 2, y: h * 0.34, width: w * 0.55 };
@@ -1304,7 +1340,8 @@
     const mirroredMask = document.createElement('canvas');
     mirroredMask.width = w; mirroredMask.height = h;
     const mm = mirroredMask.getContext('2d');
-    mm.translate(w, 0); mm.scale(-1, 1); mm.drawImage(segMask, 0, 0, w, h);
+    if (stream) { mm.translate(w, 0); mm.scale(-1, 1); }
+    mm.drawImage(segMask, 0, 0, w, h);
 
     // Чёткие расширенные кольца вместо одного мутного shadowBlur.
     glowLayer = document.createElement('canvas');
@@ -1932,6 +1969,8 @@
       ? `Правильных ответов: ${score} из ${QUESTIONS.length}. Забирай свой стоп-кадр!`
       : `Правильных ответов: ${score} из ${QUESTIONS.length}. Ещё раунд — перепишем финальную панель.`;
     renderRoundStrip();
+    endScreen.classList.remove('cameraUpsell');
+    cameraReplayBtn.classList.add('hidden');
     endScreen.classList.remove('hidden');
     if (win) freezeFrame(true); else startRain();
     playMenuMusic();
@@ -2079,6 +2118,8 @@
     roundShots = [];
     document.getElementById('roundStrip').classList.add('hidden');
     stopFx();
+    endScreen.classList.remove('cameraUpsell');
+    cameraReplayBtn.classList.add('hidden');
     endScreen.classList.add('hidden');
     ui.classList.add('hidden');
     document.getElementById('openUi').classList.remove('hidden');
@@ -2090,6 +2131,7 @@
   function nextSituation() {
     clearRecTimer();
     stopFx();
+    if (!stream) prepareSyntheticReaction('normal');
     locked = false;
     const s = roundSituations[openIndex];
     document.getElementById('openNum').textContent = `Ситуация ${openIndex + 1} из ${OPEN_TOTAL}`;
@@ -2256,6 +2298,7 @@
         setTimeout(async () => {
           openCard.classList.add('hidden');
           try {
+            await prepareSyntheticReaction(reaction.key);
             if (reaction.key === 'bad') startRain(); else freezeFrame(reaction.key);
             await waitForPortraitLayers();
             captureOpenShot(judge.grade);
@@ -2288,7 +2331,7 @@
   }
 
   function waitForPortraitLayers(timeout = 2500) {
-    if (!stream) return Promise.resolve();
+    if (!stream && !syntheticCharacterImage) return Promise.resolve();
     const started = performance.now();
     return new Promise(resolve => {
       const poll = () => {
@@ -2414,11 +2457,18 @@
     document.getElementById('openProgress').style.width = '100%';
     const avg = openSum / OPEN_TOTAL;
     const win = avg >= 6;
+    const cameraUpsell = !stream;
     document.getElementById('endTitle').textContent = '🎯 РЕЗУЛЬТАТ';
-    document.getElementById('endText').textContent = `Средняя оценка выхода из ситуаций: ${avg.toFixed(1)}/10.`;
+    document.getElementById('endText').textContent = cameraUpsell
+      ? `Средняя оценка: ${avg.toFixed(1)}/10. Включи камеру и переиграй, чтобы получить свои комикс-фото.`
+      : `Средняя оценка выхода из ситуаций: ${avg.toFixed(1)}/10.`;
     renderRoundStrip();
+    endScreen.classList.toggle('cameraUpsell', cameraUpsell);
+    cameraReplayBtn.classList.toggle('hidden', !cameraUpsell);
     endScreen.classList.remove('hidden');
-    if (win) freezeFrame(true); else startRain();
+    prepareSyntheticReaction(gradeReaction(avg).key).then(() => {
+      if (win) freezeFrame(true); else startRain();
+    });
     playMenuMusic();
   }
 
@@ -2445,7 +2495,9 @@
     }
     if (!ok) {
       modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
+      await prepareSyntheticReaction('normal');
     }
+    startPending = false;
     startScreen.classList.add('hidden');
     stopMenuMusic();
     startGame();
@@ -2457,14 +2509,16 @@
     openMode = true;
     setStartPending(true, '◌ Включаем камеру…');
     let ok = await startCamera();
-    if (ok && !segmenter) {
+    if (!segmenter) {
       setStartPending(true, '◌ Загружаем эффекты…');
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) { stopCamera(); ok = false; }
+      if (ok && !model) { stopCamera(); ok = false; }
     }
     if (!ok) {
       modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
+      await prepareSyntheticReaction('normal');
     }
+    startPending = false;
     startScreen.classList.add('hidden');
     stopMenuMusic();
     const started = await startOpenGame();
@@ -2531,6 +2585,26 @@
     } else {
       startGame();
     }
+  };
+
+  cameraReplayBtn.onclick = async () => {
+    cameraReplayBtn.disabled = true;
+    cameraReplayBtn.textContent = '◌ Включаем камеру…';
+    let ok = await startCamera();
+    if (ok && !segmenter) {
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (!model) { stopCamera(); ok = false; }
+    }
+    cameraReplayBtn.disabled = false;
+    cameraReplayBtn.textContent = '📸 Переиграть с камерой';
+    if (!ok) {
+      document.getElementById('endText').textContent = 'Не удалось включить камеру. Проверь разрешение браузера и попробуй ещё раз.';
+      return;
+    }
+    syntheticCharacterImage = null;
+    stopMenuMusic();
+    const started = await startOpenGame();
+    if (!started) { stopCamera(); playMenuMusic(); }
   };
 
   function metrikaGoal(goalId) {
@@ -2600,6 +2674,7 @@
   camOffBtn.onclick = async () => {
     if (stream) {
       stopCamera();
+      await prepareSyntheticReaction('normal');
       camOffBtn.classList.remove('hidden');
       camOffBtn.textContent = '📷 Камера';
       return;
