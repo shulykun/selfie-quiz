@@ -373,6 +373,67 @@
   @media (min-width:768px) and (min-height:640px) {
     .cringeIntro { display:block; }
   }
+
+  /* ---------- Рекламные варианты стартового экрана ---------- */
+  .landingOnly { display:none; }
+  body[data-landing] #startScreen { justify-content:flex-start; padding:clamp(30px,7vh,72px) 22px 24px; }
+  body[data-landing] #startScreen .h1 { margin-top:auto; }
+  body[data-landing] #startScreen .startPromise { margin-top:10px; }
+  body[data-landing] #startScreen #openBtn { width:min(100%,360px); margin-top:20px; }
+  body[data-landing] #startScreen #modelHint { font-size:10px; opacity:.8; }
+  body[data-landing] #startScreen #rulesLink { margin-top:auto; }
+  body[data-landing] .cringeIntro { display:none; }
+  body[data-landing] .landingOnly { display:block; }
+  .landingEyebrow {
+    position:absolute; top:max(26px, calc(env(safe-area-inset-top) + 16px)); left:50%;
+    transform:translateX(-50%) rotate(-2deg); width:max-content; max-width:calc(100% - 44px);
+    padding:7px 11px; color:var(--paper); background:var(--ink); border:3px solid var(--paper);
+    box-shadow:4px 4px 0 var(--ink); font:900 11px/1.1 ui-monospace,monospace;
+    letter-spacing:1px; text-transform:uppercase;
+  }
+  .landingSub { max-width:350px; margin:4px 0 8px; font-size:15px; line-height:1.35; font-weight:900; }
+  .landingMeta { margin-top:12px; font:900 11px/1.2 ui-monospace,monospace; letter-spacing:.5px; }
+  .landingProof { display:flex !important; gap:8px; justify-content:center; margin-top:12px; }
+  .landingProof span { padding:6px 8px; border:2px solid var(--ink); background:rgba(255,248,223,.88); font-size:10px; font-weight:900; }
+  .landingHero { display:none; }
+
+  body[data-landing="duel"] #startScreen {
+    background:linear-gradient(145deg,rgba(255,59,79,.98) 0 48%,rgba(25,217,255,.98) 48% 100%);
+  }
+  body[data-landing="duel"] .landingEyebrow { background:var(--magenta); }
+  body[data-landing="duel"] #startScreen .h1 { max-width:430px; font-size:clamp(40px,11vw,66px); }
+  body[data-landing="duel"] #startScreen .startPromise b { background:var(--magenta); }
+  body[data-landing="duel"] #startScreen #openBtn { background:var(--yellow); animation:cta-pop 1.8s ease-in-out infinite; }
+
+  body[data-landing="result"] #startScreen {
+    background:linear-gradient(155deg,rgba(9,6,17,.98) 0 34%,rgba(255,63,180,.98) 34% 67%,rgba(255,227,79,.98) 67% 100%);
+  }
+  body[data-landing="result"] #startScreen::before { opacity:.5; background-size:12px 12px; }
+  body[data-landing="result"] .landingEyebrow { z-index:3; color:var(--ink); background:var(--yellow); border-color:var(--ink); }
+  body[data-landing="result"] #startScreen .h1 { z-index:2; align-self:flex-start; max-width:55%; color:var(--cyan); text-align:left; font-size:clamp(34px,9vw,54px); }
+  body[data-landing="result"] #startScreen .startPromise { background:#fff; transform:rotate(1deg); }
+  body[data-landing="result"] #startScreen .startPromise b { background:var(--magenta); }
+  body[data-landing="result"] #startScreen #openBtn { color:var(--paper); background:var(--red); }
+  body[data-landing="result"] .landingHero {
+    display:block; position:absolute; z-index:1; top:max(68px, calc(env(safe-area-inset-top) + 56px)); right:5px;
+    width:clamp(128px,38vw,170px); margin:0; transform:rotate(5deg);
+    border:4px solid var(--paper); box-shadow:7px 8px 0 var(--ink);
+  }
+  body[data-landing="result"] .landingHero img { display:block; width:100%; height:auto; aspect-ratio:2/3; object-fit:cover; }
+  body[data-landing="result"] .landingHero figcaption {
+    position:absolute; right:7px; bottom:8px; padding:6px 9px; color:var(--ink); background:var(--yellow);
+    border:3px solid var(--ink); box-shadow:3px 3px 0 var(--ink); font:1000 18px/1 Impact,Arial Black,sans-serif;
+    transform:rotate(-4deg);
+  }
+  @keyframes cta-pop { 0%,100% { transform:rotate(-1deg) scale(1); } 50% { transform:rotate(1deg) scale(1.035); } }
+  @media (max-height:700px) {
+    body[data-landing] #startScreen { padding-top:52px; padding-bottom:14px; }
+    body[data-landing] #startScreen .h1 { font-size:34px; margin-bottom:10px; }
+    body[data-landing] #startScreen .startPromise { gap:4px; padding:9px 12px; }
+    body[data-landing] #startScreen .startPromise b { height:24px; flex-basis:24px; }
+    body[data-landing] #startScreen #openBtn { margin-top:12px; padding:11px 20px; }
+    .landingProof { margin-top:7px; }
+  }
 </style>
 </head>
 <body>
@@ -430,6 +491,11 @@
 <div id="poseCue" aria-live="assertive"><div class="cue"></div></div>
 
 <div id="startScreen">
+  <div class="landingEyebrow landingOnly" id="landingEyebrow"></div>
+  <figure class="landingHero" aria-label="Пример комикс-селфи из игры">
+    <img src="assets/images/result-landing-hero.jpg" alt="Яркое комикс-селфи — пример результата игры" width="640" height="960">
+    <figcaption>КРИНЖ 8/10</figcaption>
+  </figure>
   <div class="h1">🎤 Кринж-баттл</div>
   <div class="cringeIntro">
     <div class="cringeCards">
@@ -443,6 +509,7 @@
       </div>
     </div>
   </div>
+  <div class="landingSub landingOnly" id="landingSub"></div>
   <div class="p startPromise">
     <div><b>1</b><span>Ответь на неловкую ситуацию</span></div>
     <div><b>2</b><span>Покажи реакцию на камеру</span></div>
@@ -450,6 +517,7 @@
   </div>
   <button class="btn hidden" id="startBtn">▶ Играть</button>
   <button class="btn" id="openBtn">▶ Начать баттл</button>
+  <div class="landingProof landingOnly"><span>5 ситуаций</span><span>≈ 3 минуты</span><span>12+</span></div>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
   <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
 </div>
@@ -528,6 +596,39 @@
   const segError = document.getElementById('segError');
   const styleLab = document.getElementById('styleLab');
   const query = new URLSearchParams(location.search);
+  const landingVariant = ['duel', 'result'].includes(query.get('landing')) ? query.get('landing') : '';
+  const creativeVariant = ['1', '2', '3'].includes(query.get('creative')) ? query.get('creative') : '1';
+  if (landingVariant) {
+    document.body.dataset.landing = landingVariant;
+    const landingCopy = {
+      duel: {
+        title: 'Кто из вас не кринжанёт?',
+        eyebrow: 'Брось вызов друзьям',
+        sub: 'Пройди первым, покажи свой рейтинг — и передай телефон следующему.',
+        cta: 'Принять вызов'
+      },
+      result: {
+        title: 'Насколько ты кринж?',
+        eyebrow: 'ИИ вынесет вердикт',
+        sub: 'Ответь на 5 неловких ситуаций и получи персональный комикс-кадр.',
+        cta: 'Узнать свой рейтинг'
+      }
+    }[landingVariant];
+    document.querySelector('#startScreen .h1').textContent = landingCopy.title;
+    document.getElementById('landingEyebrow').textContent = landingCopy.eyebrow;
+    document.getElementById('landingSub').textContent = landingCopy.sub;
+    document.getElementById('openBtn').textContent = `▶ ${landingCopy.cta}`;
+    document.title = `${landingCopy.title} — Кринж-баттл`;
+    if (landingVariant === 'result') {
+      const creative = {
+        '1': { src:'assets/images/result-landing-hero.jpg', score:'КРИНЖ 8/10' },
+        '2': { src:'assets/images/result-landing-hero-2.jpg', score:'КРИНЖ 7/10' },
+        '3': { src:'assets/images/result-landing-hero-3.jpg', score:'КРИНЖ 9/10' }
+      }[creativeVariant];
+      document.querySelector('.landingHero img').src = creative.src;
+      document.querySelector('.landingHero figcaption').textContent = creative.score;
+    }
+  }
   const portraitLabEnabled = query.get('lab') === '1';
   let portraitStyle = query.get('style') || 'manga';
   let portraitStyleLocked = query.has('style') || portraitLabEnabled;
@@ -787,7 +888,7 @@
       startBtn.disabled = false;
       startBtn.textContent = '▶ Играть';
       openBtn.disabled = false;
-      openBtn.textContent = '▶ Начать баттл';
+      openBtn.textContent = landingVariant === 'duel' ? '▶ Принять вызов' : landingVariant === 'result' ? '▶ Узнать свой рейтинг' : '▶ Начать баттл';
       modelHint.textContent = 'MODEL READY // эффекты готовы';
     } else {
       startBtn.disabled = false;
@@ -2416,7 +2517,7 @@
   };
 
   function metrikaGoal(goalId) {
-    try { if (window.ym) ym(112316717, 'reachGoal', goalId); } catch (e) { dbgLog('metrika-error', { err: String(e) }); }
+    try { if (window.ym) ym(112316717, 'reachGoal', goalId, { landing_variant: landingVariant || 'default', creative_variant: creativeVariant }); } catch (e) { dbgLog('metrika-error', { err: String(e) }); }
   }
 
   // собрать картинку для шаринга: фон + человек + контур + счёт
