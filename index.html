@@ -911,11 +911,15 @@
       try {
       window.__quizDebug.segState = 'loading';
       setAiStatus('AI: загрузка модели…');
+      // Пути до MediaPipe-ресурсов строим от текущего каталога страницы:
+      // квиз живёт и в корне (cringe.roborumba.com), и под /quiz/ (rumbik), и под /beta/.
+      const pageDir = location.pathname.split('/').slice(0, -1).join('/'); // '/quiz' | '' | '/beta'
+      const tasksBase = (pageDir || '') + '/vendor/tasks/';
       // Версия в URL не даёт браузеру переиспользовать старый MIME/модуль после деплоя.
-      const src = await import('/quiz/vendor/tasks/vision_bundle.mjs?v=visual-2');
-      const vision = await src.FilesetResolver.forVisionTasks('/quiz/vendor/tasks/wasm/');
+      const src = await import(`${tasksBase}vision_bundle.mjs?v=visual-2`);
+      const vision = await src.FilesetResolver.forVisionTasks(`${tasksBase}wasm/`);
       segmenter = await src.ImageSegmenter.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: '/quiz/vendor/tasks/selfie_segmenter.tflite' },
+        baseOptions: { modelAssetPath: `${tasksBase}selfie_segmenter.tflite` },
         runningMode: 'IMAGE',
         outputCategoryMask: true
       });
