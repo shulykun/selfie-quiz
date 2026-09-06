@@ -598,6 +598,9 @@
   const query = new URLSearchParams(location.search);
   const landingVariant = ['duel', 'result'].includes(query.get('landing')) ? query.get('landing') : '';
   const creativeVariant = ['1', '2', '3'].includes(query.get('creative')) ? query.get('creative') : '1';
+  // Реклама: камеру не просим на старте — только к моменту селфи (после вердикта).
+  const lazyCamera = !!landingVariant;
+  let lazyCameraTried = false;
   if (landingVariant) {
     document.body.dataset.landing = landingVariant;
     const landingCopy = {
@@ -903,14 +906,14 @@
     }
   }
 
-  function initSelfieSeg(force = false) {
+  function initSelfieSeg(force = false, quiet = false) {
     if (segmenter && !force) return Promise.resolve(segmenter);
     if (modelInitPromise && !force) return modelInitPromise;
-    setStartModelState('loading');
+    if (!quiet) setStartModelState('loading');
     modelInitPromise = (async () => {
       try {
       window.__quizDebug.segState = 'loading';
-      setAiStatus('AI: загрузка модели…');
+      if (!quiet) setAiStatus('AI: загрузка модели…');
       // Пути до MediaPipe-ресурсов строим от текущего каталога страницы:
       // квиз живёт и в корне (cringe.roborumba.com), и под /quiz/ (rumbik), и под /beta/.
       const pageDir = location.pathname.split('/').slice(0, -1).join('/'); // '/quiz' | '' | '/beta'
@@ -924,7 +927,7 @@
         outputCategoryMask: true
       });
       window.__quizDebug.segState = 'ready';
-      setStartModelState('ready');
+      if (!quiet) setStartModelState('ready');
       setAiStatus('AI: готово ✓');
       if (!portraitLabEnabled) setTimeout(() => setAiStatus('', false), 1100);
       return segmenter;
@@ -932,7 +935,7 @@
       window.__quizDebug.segState = 'init-error';
       window.__quizDebug.segError = String(e);
       modelInitPromise = null;
-      setStartModelState('error');
+      if (!quiet) setStartModelState('error');
       setAiStatus('AI: недоступно');
       return null;
     }
@@ -2247,9 +2250,16 @@
   }
 
   function runScoreCountdown(judge) {
-    return new Promise(resolve => {
+    return new Promise(async resolve => {
       const reaction = gradeReaction(judge.grade);
       const openCard = document.querySelector('#openUi .openCard');
+      // Реклама (landing): системный запрос камеры показываем только здесь —
+      // после вердикта, когда игрок уже вовлечён. Модель к этому моменту уже
+      // загружена в фоне; если её нет или доступ запрещён — комикс-карточка.
+      if (lazyCamera && !stream && !lazyCameraTried) {
+        lazyCameraTried = true;
+        if (segmenter) await startCamera();
+      }
       showPoseCue(`${reaction.label} ${judge.grade}`, reaction.tone);
       beep(reaction.beep, .12, 'square', .1);
       if (!stream) {
@@ -2455,6 +2465,22 @@
     if (startPending) return;
     playMenuMusic();
     openMode = true;
+    if (lazyCamera) {
+      // Реклама: стартуем сразу, без запроса камеры. Эффекты грузим в фоне,
+      // доступ к камере попросим только перед селфи (см. runScoreCountdown).
+      setStartPending(true, '◌ Собираем ситуации…');
+      startScreen.classList.add('hidden');
+      stopMenuMusic();
+      initSelfieSeg(false, true);
+      const started = await startOpenGame();
+      if (!started) {
+        startScreen.classList.remove('hidden');
+        playMenuMusic();
+        setStartPending(false);
+        setStartModelState('ready');
+      }
+      return;
+    }
     setStartPending(true, '◌ Включаем камеру…');
     let ok = await startCamera();
     if (ok && !segmenter) {
