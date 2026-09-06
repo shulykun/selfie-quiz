@@ -347,6 +347,32 @@
     text-decoration:underline dotted; text-underline-offset:3px; opacity:.75; cursor:pointer;
   }
   #rulesLink:active { opacity:1; }
+
+  /* ---------- Интро «Попал в кринж → Выкручивайся» (только планшет + десктоп) ---------- */
+  .cringeIntro { display:none; width:min(740px,100%); margin:2px 0 14px; text-align:left; }
+  .cringeCards { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .cringeCard {
+    position:relative; padding:13px 15px 12px; background:var(--paper);
+    border:4px solid var(--ink); border-radius:6px; box-shadow:7px 8px 0 var(--ink);
+  }
+  .cringeCard--bad { transform:rotate(-1.1deg); }
+  .cringeCard--good { transform:rotate(1.1deg); }
+  .ccHead { display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+  .ccEmoji {
+    flex:0 0 32px; display:grid; place-items:center; width:32px; height:32px;
+    font-size:17px; line-height:1; background:#fff; border:2px solid var(--ink);
+    box-shadow:2px 2px 0 var(--ink); transform:rotate(-2deg);
+  }
+  .ccTitle {
+    flex:1 1 auto; min-width:0; padding:4px 8px; color:var(--paper); background:var(--ink);
+    font:1000 13px/1.15 Impact,'Arial Black',sans-serif; text-transform:uppercase;
+    letter-spacing:.2px; box-shadow:3px 3px 0 var(--red); transform:rotate(-.6deg);
+  }
+  .cringeCard--good .ccTitle { color:var(--ink); background:var(--yellow); box-shadow:3px 3px 0 var(--ink); }
+  .ccText { margin:0; padding-top:9px; color:var(--ink); font-size:13px; font-weight:800; line-height:1.45; }
+  @media (min-width:768px) and (min-height:640px) {
+    .cringeIntro { display:block; }
+  }
 </style>
 </head>
 <body>
@@ -405,6 +431,18 @@
 
 <div id="startScreen">
   <div class="h1">🎤 Кринж-баттл</div>
+  <div class="cringeIntro">
+    <div class="cringeCards">
+      <div class="cringeCard cringeCard--bad">
+        <div class="ccHead"><span class="ccEmoji">🙀</span><span class="ccTitle">Представь что ты попал в кринж</span></div>
+        <p class="ccText">Тебя застукали за странным занятием. Или забыл имя человека, с которым здороваешься уже год. Ну ты понял..</p>
+      </div>
+      <div class="cringeCard cringeCard--good">
+        <div class="ccHead"><span class="ccEmoji">💡</span><span class="ccTitle">Выкручивайся</span></div>
+        <p class="ccText">Каждая ситуация — вызов. Придумай самый остроумный, нелепый или гениальный выход и получи максимум баллов за оригинальность</p>
+      </div>
+    </div>
+  </div>
   <div class="p startPromise">
     <div><b>1</b><span>Ответь на неловкую ситуацию</span></div>
     <div><b>2</b><span>Покажи реакцию на камеру</span></div>
