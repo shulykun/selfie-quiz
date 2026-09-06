@@ -7,9 +7,11 @@ POST /judge or /quiz/api/judge  {"situation": "...", "answer": "..."}
 DeepSeek-токен берётся из TokenStore (зашифрованная БД workspace).
 Запуск: python3 quiz_judge_api.py  (порт 8003, 0.0.0.0)
 """
+import base64
 import json
 import os
 import random
+import subprocess
 import sys
 import threading
 import time
@@ -31,6 +33,11 @@ SITUATION_RATE_LIMIT = int(os.environ.get("QUIZ_SITUATION_RATE_LIMIT", "6"))
 TRUST_PROXY = os.environ.get("QUIZ_JUDGE_TRUST_PROXY", "").lower() in {"1", "true", "yes"}
 RATE_WINDOW_SECONDS = 60
 SITUATION_RATE_WINDOW_SECONDS = 60 * 60
+FEEDBACK_RATE_LIMIT = int(os.environ.get("QUIZ_FEEDBACK_RATE_LIMIT", "10"))
+FEEDBACK_WINDOW_SECONDS = 60 * 60
+FEEDBACK_MAIL_TO = os.environ.get("QUIZ_FEEDBACK_MAIL_TO", "shulginov@roborumba.com")
+FEEDBACK_MSMTP_ACCOUNT = os.environ.get("QUIZ_FEEDBACK_MSMTP_ACCOUNT", "yandex")
+FEEDBACK_LOG_PATH = "/srv/selfie-cringe/private/feedback.log"
 TASK_BASE_PATH = os.environ.get(
     "CRINGE_TASK_BASE",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_data", "cringe_task_base.xlsx"),
@@ -108,6 +115,50 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
+
+
+def send_feedback_email(name: str, contact: str, text: str, ip: str) -> bool:
+    """Шлём отзыв на почту через msmtp (аккаунт yandex = shulginov@roborumba.com)."""
+    subject_b64 = base64.b64encode("Отзыв: Бой с кринжем".encode("utf-8")).decode("ascii")
+    raw = (
+        f"From: {FEEDBACK_MAIL_TO}\r\n"
+        f"To: {FEEDBACK_MAIL_TO}\r\n"
+        f"Subject: =?UTF-8?B?{subject_b64}?=\r\n"
+        "MIME-Version: 1.0\r\n"
+        "Content-Type: text/plain; charset=UTF-8\r\n\r\n"
+        "Новый отзыв о «Бое с кринжем»\r\n\r\n"
+        f"👤 Имя: {name or '—'}\r\n"
+        f"📮 Контакт: {contact or '—'}\r\n"
+        f"💬 Отзыв:\r\n{text}\r\n\r\n"
+        f"🕐 {time.strftime('%d.%m.%Y %H:%M:%S')} · {ip}\r\n"
+    )
+    try:
+        proc = subprocess.run(
+            ["/usr/bin/msmtp", "-a", FEEDBACK_MSMTP_ACCOUNT, FEEDBACK_MAIL_TO],
+            input=raw.encode("utf-8"),
+            capture_output=True,
+            timeout=30,
+        )
+        ok = proc.returncode == 0
+        if not ok:
+            print(f"[feedback] msmtp error: {proc.stderr.decode('utf-8', 'ignore')[:400]}", flush=True)
+    except Exception as e:
+        ok = False
+        print(f"[feedback] msmtp exception: {e}", flush=True)
+    try:
+        os.makedirs(os.path.dirname(FEEDBACK_LOG_PATH), exist_ok=True)
+        with open(FEEDBACK_LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "ip": ip,
+                "name": name,
+                "contact": contact,
+                "feedback": text,
+                "sent": ok,
+            }, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"[feedback] log write error: {e}", flush=True)
+    return ok
 
 
 def get_deepseek_token():
@@ -236,6 +287,35 @@ def situations_route():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"ok": True})
+
+
+@app.route("/feedback", methods=["POST", "OPTIONS"])
+@app.route("/quiz/api/feedback", methods=["POST", "OPTIONS"])
+def feedback_route():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    client_id = get_client_id()
+    if is_rate_limited(
+        client_id,
+        scope="feedback",
+        limit=FEEDBACK_RATE_LIMIT,
+        window=FEEDBACK_WINDOW_SECONDS,
+    ):
+        return jsonify({"error": "rate limit exceeded"}), 429
+    data = request.get_json(silent=True) or {}
+    # honeypot — боты заполняют скрытое поле
+    if data.get("website"):
+        return jsonify({"success": True})
+    name = str(data.get("name") or "").strip()[:200]
+    contact = str(data.get("contact") or "").strip()[:300]
+    text = str(data.get("feedback") or "").strip()
+    if len(text) < 3 or len(text) > 3000:
+        return jsonify({"success": False, "error": "Отзыв слишком короткий или длинный"}), 400
+    sent = send_feedback_email(name, contact, text, client_id)
+    print(f"[feedback] from {client_id} name={name!r} contact={contact!r} sent={sent}", flush=True)
+    if not sent:
+        return jsonify({"success": False, "error": "Не удалось отправить, попробуй ещё раз"}), 500
+    return jsonify({"success": True})
 
 
 if __name__ == "__main__":

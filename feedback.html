@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Отзыв — Бой с кринжем</title>
+<style>
+  :root { --ink:#090611; --paper:#fff8df; --yellow:#ffe34f; --red:#ff3b4f; --cyan:#19d9ff; --magenta:#ff3fb4; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:28px 18px; font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color:var(--ink); background:linear-gradient(135deg,var(--red) 0 52%,var(--yellow) 52% 100%);
+  }
+  body::before { content:''; position:fixed; inset:-20px; z-index:-1; opacity:.3;
+    background-image:radial-gradient(var(--ink) 1.6px, transparent 1.8px); background-size:16px 16px;
+    transform:rotate(-5deg) scale(1.08); }
+  body::after { content:''; position:fixed; inset:10px; z-index:-1; pointer-events:none;
+    border:4px solid var(--ink); box-shadow:inset 0 0 0 3px var(--paper); }
+
+  /* Логотип — как заголовок на стартовом экране игры */
+  .logo {
+    color:var(--paper); font:1000 clamp(26px,7vw,40px)/.95 Impact,'Arial Black',sans-serif;
+    text-transform:uppercase; letter-spacing:-1px; text-align:center;
+    -webkit-text-stroke:5px var(--ink); paint-order:stroke fill;
+    filter:drop-shadow(5px 6px 0 var(--ink)); margin-bottom:20px;
+  }
+  .logo span { color:var(--yellow); }
+
+  .box {
+    width:min(100%, 500px); padding:24px 22px 22px; background:var(--paper);
+    border:4px solid var(--ink); border-radius:8px; box-shadow:9px 10px 0 var(--ink);
+    transform:rotate(-.3deg);
+  }
+  .box h2 {
+    display:inline-block; margin:-38px 0 16px 2px; padding:5px 11px; color:var(--paper);
+    background:var(--magenta); border:3px solid var(--ink); box-shadow:3px 3px 0 var(--ink);
+    font:1000 13px/1 Impact,'Arial Black',sans-serif; text-transform:uppercase;
+    letter-spacing:.4px; transform:rotate(-1.5deg);
+  }
+  .field { margin-bottom:12px; }
+  .field label {
+    display:block; margin-bottom:5px; font-size:11px; font-weight:1000; text-transform:uppercase;
+    letter-spacing:.6px;
+  }
+  .field label i { color:var(--red); font-style:normal; }
+  .field input, .field textarea {
+    width:100%; padding:10px 12px; color:var(--ink); background:#fff;
+    border:3px solid var(--ink); border-radius:4px; box-shadow:3px 3px 0 var(--ink);
+    font-size:14px; font-weight:700; line-height:1.4; font-family:inherit;
+  }
+  .field textarea { min-height:120px; resize:vertical; }
+  .field input:focus, .field textarea:focus { outline:none; background:var(--yellow); }
+  .btn {
+    display:block; width:100%; margin-top:6px; padding:13px 18px; color:var(--ink);
+    background:var(--yellow); border:4px solid var(--ink); border-radius:6px;
+    box-shadow:6px 7px 0 var(--ink); cursor:pointer;
+    font:1000 15px/1 Impact,'Arial Black',sans-serif; text-transform:uppercase;
+    letter-spacing:.5px; transition:transform .1s ease, box-shadow .1s ease;
+  }
+  .btn:active { transform:translate(4px,5px); box-shadow:2px 2px 0 var(--ink); }
+  .btn:disabled { opacity:.6; cursor:wait; }
+  .back {
+    display:block; margin:20px auto 0; padding:10px 18px; width:fit-content; color:var(--paper);
+    background:var(--cyan); border:3px solid var(--ink); border-radius:6px;
+    box-shadow:4px 5px 0 var(--ink); text-decoration:none;
+    font:1000 13px/1 Impact,'Arial Black',sans-serif; text-transform:uppercase; letter-spacing:.4px;
+  }
+  .back:active { transform:translate(2px,3px); box-shadow:2px 2px 0 var(--ink); }
+  #status { display:none; margin-top:14px; padding:11px 13px; font-size:13px; font-weight:800;
+    line-height:1.4; border:3px solid var(--ink); box-shadow:4px 5px 0 var(--ink); }
+  #status.ok { display:block; color:var(--ink); background:#c9f5b3; }
+  #status.err { display:block; color:var(--paper); background:var(--red); }
+  /* Музыка: переключатель, как на главной (clown.mp3) */
+  #musicBtn {
+    position:fixed; top:max(14px, env(safe-area-inset-top)); right:14px; z-index:5;
+    padding:7px 11px; color:var(--paper); background:rgba(9,6,17,.78); border:2px solid var(--paper);
+    border-radius:4px; font-size:15px; line-height:1; cursor:pointer; box-shadow:3px 3px 0 var(--ink);
+  }
+  .hint { margin:10px 0 0; font-size:12px; font-weight:700; opacity:.75; text-align:center; }
+</style>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+ (function(m,e,t,r,i,k,a){
+ m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+ m[i].l=1*new Date();
+ for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+ k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+ })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112316717', 'ym');
+
+ ym(112316717, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/112316717" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</head>
+<body>
+  <audio id="bgMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
+  <button id="musicBtn" type="button" aria-label="Вкл/выкл музыку">🔊</button>
+
+  <div class="logo">🎤 Кринж-<span>баттл</span></div>
+
+  <div class="box">
+    <h2>💬 Отзыв</h2>
+    <form id="fbForm" novalidate>
+      <div class="field">
+        <label for="fbName">Имя <i>*</i></label>
+        <input id="fbName" name="name" type="text" maxlength="100" autocomplete="name" placeholder="Как тебя зовут?">
+      </div>
+      <div class="field">
+        <label for="fbContact">Контакт (необязательно)</label>
+        <input id="fbContact" name="contact" type="text" maxlength="200" placeholder="Телефон, почта или @telegram">
+      </div>
+      <div class="field">
+        <label for="fbText">Твой отзыв <i>*</i></label>
+        <textarea id="fbText" name="feedback" maxlength="3000" required placeholder="Что понравилось, что докрутить, какие ситуации добавить?"></textarea>
+      </div>
+      <!-- honeypot: боты заполняют — мы молча «принимаем» -->
+      <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute; left:-9999px; opacity:0;" aria-hidden="true">
+      <button class="btn" type="submit" id="fbSend">Отправить ✉️</button>
+    </form>
+    <div id="status" role="status"></div>
+    <a class="back" href="https://cringe.roborumba.com/">← К игре</a>
+  </div>
+  <p class="hint">Отзыв улетит на почту — без регистрации и спама</p>
+
+<script>
+  (function () {
+    const VOLUME = 0.18;
+    const music = document.getElementById('bgMusic');
+    const musicBtn = document.getElementById('musicBtn');
+    let playing = false;
+
+    function tryPlay() {
+      if (playing) return;
+      music.volume = VOLUME;
+      music.play().then(() => { playing = true; musicBtn.textContent = '🔇'; }).catch(() => {});
+    }
+    function toggle() {
+      if (playing) {
+        music.pause(); music.currentTime = 0; music.volume = VOLUME;
+        playing = false; musicBtn.textContent = '🔊';
+      } else {
+        tryPlay();
+      }
+    }
+    musicBtn.addEventListener('click', toggle);
+    // Первый тап/клавиша включает музыку, как на главной
+    document.addEventListener('pointerdown', tryPlay, { once: true });
+    document.addEventListener('keydown', tryPlay, { once: true });
+
+    const form = document.getElementById('fbForm');
+    const sendBtn = document.getElementById('fbSend');
+    const statusEl = document.getElementById('status');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('fbName').value.trim();
+      const contact = document.getElementById('fbContact').value.trim();
+      const feedback = document.getElementById('fbText').value.trim();
+      statusEl.className = '';
+      if (feedback.length < 3) {
+        statusEl.className = 'err';
+        statusEl.textContent = '✍️ Напиши хотя бы пару слов — иначе жюри не поверит.';
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Отправляем…';
+      try {
+        const resp = await fetch('/quiz/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, contact: contact, feedback: feedback, website: '' }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok && data.success) {
+          form.style.display = 'none';
+          statusEl.className = 'ok';
+          statusEl.textContent = 'Спасибо! Отзыв улетел на почту создателям. Криндж — наша работа, твои слова помогут сделать её лучше 😌';
+          if (window.ym) ym(112316717, 'reachGoal', 'feedback_sent');
+        } else {
+          statusEl.className = 'err';
+          statusEl.textContent = (data && data.error) || 'Не получилось отправить. Попробуй ещё раз.';
+        }
+      } catch (err) {
+        statusEl.className = 'err';
+        statusEl.textContent = 'Сеть подвела — проверь соединение и попробуй ещё раз.';
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Отправить ✉️';
+      }
+    });
+  })();
+</script>
+</body>
+</html>
