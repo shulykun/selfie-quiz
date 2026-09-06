@@ -2054,7 +2054,7 @@
   let roundSituations = [];
   let lastOpenResult = null;
   const OPEN_TOTAL = 5;
-  let rec = null, recFinal = '';
+  let rec = null, recFinal = '', recLastText = '';
   let recTimer = null, recSecondsLeft = 10;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -2098,6 +2098,7 @@
     document.getElementById('openProgress').style.width = (openIndex / OPEN_TOTAL * 100) + '%';
     document.getElementById('openScore').innerHTML = `Рейтинг: <b>${openSum}</b>`;
     recFinal = '';
+    recLastText = '';
     const at = document.getElementById('answerText'); at.classList.add('hidden'); at.textContent = '';
     const ai = document.getElementById('answerInput'); ai.classList.add('hidden'); ai.value = '';
     document.getElementById('recStatus').classList.remove('show', 'recording');
@@ -2169,17 +2170,24 @@
       }
       if (final) { recFinal += final; try { rec.stop(); } catch (err) {} }
       const at = document.getElementById('answerText');
-      at.textContent = (recFinal + ' ' + interim).trim();
+      const spoken = (recFinal + ' ' + interim).trim();
+      recLastText = spoken;
+      at.textContent = spoken;
       at.classList.remove('hidden');
     };
     rec.onend = () => {
       clearRecTimer();
       status.classList.remove('show', 'recording');
       document.getElementById('stopRecBtn').classList.add('hidden');
+      // Если запись остановили до финального результата распознавания, берём
+      // последний услышанный текст — иначе кнопка «Подтвердить» не появляется.
+      if (!recFinal.trim() && recLastText.trim()) recFinal = recLastText;
       if (recFinal.trim()) {
         document.getElementById('recBtn').classList.add('hidden');
         document.getElementById('reRecBtn').classList.remove('hidden');
         document.getElementById('confirmBtn').classList.remove('hidden');
+        document.getElementById('answerText').textContent = recFinal;
+        document.getElementById('answerText').classList.remove('hidden');
       } else if (document.getElementById('answerInput').classList.contains('hidden')) {
         document.getElementById('recBtn').classList.remove('hidden');
       }
@@ -2474,6 +2482,7 @@
   document.getElementById('typeBtn').onclick = enableManualAnswer;
   document.getElementById('reRecBtn').onclick = () => {
     recFinal = '';
+    recLastText = '';
     const at = document.getElementById('answerText');
     at.textContent = ''; at.classList.add('hidden');
     document.getElementById('confirmBtn').classList.add('hidden');
