@@ -783,6 +783,10 @@
         audio: false
       });
       video.srcObject = stream;
+      // Явный play(): autoplay-атрибут не всегда стартует поток после srcObject
+      // (iOS Safari и часть Android-браузеров) — иначе вместо видео чёрный экран.
+      const playPromise = video.play();
+      if (playPromise && playPromise.catch) playPromise.catch(e => dbgLog('video-play', { err: String(e) }));
       camOffBtn.classList.remove('hidden');
       return true;
     } catch (e) {
