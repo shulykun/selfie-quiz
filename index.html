@@ -797,7 +797,7 @@
       const playPromise = video.play();
       if (playPromise && playPromise.catch) playPromise.catch(e => dbgLog('video-play', { err: String(e) }));
       syntheticCam.classList.add('hidden');
-      camOffBtn.classList.remove('hidden');
+      syncCamBtnState();
       return true;
     } catch (e) {
       dbgLog('camera-unavailable', { err: String(e) });
@@ -809,7 +809,18 @@
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     video.srcObject = null;
     syntheticCam.classList.add('hidden');
-    camOffBtn.classList.add('hidden');
+    syncCamBtnState();
+  }
+
+  // Кнопка камеры видна во время раунда: «🚫 Камера» — выключить (идёт видео),
+  // «📷 Камера» — включить прямо в раунде (режим без камеры / комикс-карточки).
+  function syncCamBtnState() {
+    const onStart = !startScreen.classList.contains('hidden');
+    const onEnd = !endScreen.classList.contains('hidden');
+    const inRound = !ui.classList.contains('hidden') || !openUi.classList.contains('hidden');
+    if (onStart || onEnd || !inRound) { camOffBtn.classList.add('hidden'); return; }
+    camOffBtn.classList.remove('hidden');
+    camOffBtn.textContent = stream ? '🚫 Камера' : '📷 Камера';
   }
 
   async function prepareSyntheticReaction(reactionKey) {
@@ -1972,6 +1983,7 @@
     endScreen.classList.remove('cameraUpsell');
     cameraReplayBtn.classList.add('hidden');
     endScreen.classList.remove('hidden');
+    syncCamBtnState();
     if (win) freezeFrame(true); else startRain();
     playMenuMusic();
   }
@@ -2085,6 +2097,7 @@
     stopFx();
     endScreen.classList.add('hidden');
     ui.classList.remove('hidden');
+    syncCamBtnState();
     renderQuestion();
   }
 
@@ -2129,6 +2142,7 @@
   }
 
   function nextSituation() {
+    syncCamBtnState();
     clearRecTimer();
     stopFx();
     if (!stream) prepareSyntheticReaction('normal');
@@ -2466,6 +2480,7 @@
     endScreen.classList.toggle('cameraUpsell', cameraUpsell);
     cameraReplayBtn.classList.toggle('hidden', !cameraUpsell);
     endScreen.classList.remove('hidden');
+    syncCamBtnState();
     prepareSyntheticReaction(gradeReaction(avg).key).then(() => {
       if (win) freezeFrame(true); else startRain();
     });
@@ -2576,6 +2591,7 @@
     playMenuMusic();
     setStartPending(false);
     setStartModelState(segmenter ? 'ready' : 'error');
+    syncCamBtnState();
   };
   document.getElementById('againBtn').onclick = async () => {
     stopMenuMusic();
@@ -2675,14 +2691,16 @@
     if (stream) {
       stopCamera();
       await prepareSyntheticReaction('normal');
-      camOffBtn.classList.remove('hidden');
-      camOffBtn.textContent = '📷 Камера';
+      syncCamBtnState();
       return;
     }
     camOffBtn.textContent = '◌ Камера…';
     const ok = await startCamera();
-    camOffBtn.classList.remove('hidden');
-    camOffBtn.textContent = ok ? '🚫 Камера' : '📷 Камера';
+    if (ok && !segmenter) {
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (!model) { stopCamera(); ok = false; }
+    }
+    syncCamBtnState();
   };
 
 })();
