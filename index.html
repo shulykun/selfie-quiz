@@ -125,7 +125,12 @@
   #modelHint { min-height:20px; margin-top:10px; font:800 11px/1.35 ui-monospace,monospace; letter-spacing:.7px; color:#dce9f2; }
   .endBtns { display:flex; gap:10px; margin-top:18px; }
   .endBtns .btn { margin-top:0; }
-  #cameraReplayBtn { flex:1 0 100%; order:-1; background:var(--yellow); }
+  #cameraReplayBtn {
+    flex:1 0 100%; order:-1; padding:18px 22px; font-size:20px;
+    color:var(--ink); background:linear-gradient(90deg,#ffe34d,#ff9f2f);
+    border:3px solid var(--ink); box-shadow:7px 8px 0 var(--ink),0 12px 34px rgba(255,174,45,.5);
+    animation:cameraCtaPulse 1.8s ease-in-out infinite;
+  }
   #endScreen.cameraUpsell .endBtns { flex-wrap:wrap; }
   .btn.secondary {
     background:rgba(255,255,255,.12); color:#fff; box-shadow:none;
@@ -148,6 +153,13 @@
   .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
   .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  #camOff.camera-cta {
+    padding:10px 13px; color:var(--ink); background:var(--yellow); border-color:var(--ink);
+    opacity:1; box-shadow:4px 5px 0 var(--ink),0 8px 24px rgba(255,217,61,.45);
+    animation:cameraCtaPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes cameraCtaPulse { 50% { transform:scale(1.045); filter:brightness(1.08); } }
+  @media (prefers-reduced-motion:reduce) { #cameraReplayBtn,#camOff.camera-cta { animation:none; } }
   #aiStatus {
     position:fixed; bottom:10px; right:12px; z-index:9; font-size:11px; opacity:.8;
     background:rgba(0,0,0,.45); border-radius:99px; padding:4px 10px; color:#fff;
@@ -686,7 +698,16 @@
 
   let stream = null;
   let syntheticCharacterImage = null;
-  let syntheticCharacterPromise = null;
+  let lastCameraError = '';
+  let currentCharacterIndex = 0;
+  let roundCharacterOrder = [];
+  const syntheticCharacterPromises = new Map();
+  const CHARACTER_SETS = [
+    { id:'original', neutral:'assets/characters/player-puzzled.png', cringe:'assets/characters/player-cringe.png', joy:'assets/characters/player-joy.png' },
+    { id:'copper', neutral:'assets/characters/copper-neutral.jpg', cringe:'assets/characters/copper-cringe.jpg', joy:'assets/characters/copper-joy.jpg' },
+    { id:'turkish', neutral:'assets/characters/blue-neutral.jpg', cringe:'assets/characters/blue-cringe.jpg', joy:'assets/characters/blue-joy.jpg' },
+    { id:'purple', neutral:'assets/characters/purple-neutral.jpg', cringe:'assets/characters/purple-cringe.jpg', joy:'assets/characters/purple-joy.jpg' }
+  ];
   let score = 0;
   let qIndex = 0;
   let locked = false;
@@ -787,20 +808,41 @@
 
   async function startCamera() {
     try {
+      lastCameraError = '';
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       });
       video.srcObject = stream;
-      // Явный play(): autoplay-атрибут не всегда стартует поток после srcObject
-      // (iOS Safari и часть Android-браузеров) — иначе вместо видео чёрный экран.
-      const playPromise = video.play();
-      if (playPromise && playPromise.catch) playPromise.catch(e => dbgLog('video-play', { err: String(e) }));
+      // Поток ещё не означает, что браузер начал отдавать кадры. Особенно заметно
+      // на iOS: без ожидания play/metadata интерфейс переходил к чёрному экрану.
+      await video.play();
+      if (!video.videoWidth || video.readyState < 2) {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => { cleanup(); reject(new Error('camera frame timeout')); }, 4000);
+          const ready = () => { if (video.videoWidth && video.readyState >= 2) { cleanup(); resolve(); } };
+          const failed = () => { cleanup(); reject(new Error('camera video error')); };
+          const cleanup = () => {
+            clearTimeout(timeout);
+            video.removeEventListener('loadeddata', ready);
+            video.removeEventListener('canplay', ready);
+            video.removeEventListener('error', failed);
+          };
+          video.addEventListener('loadeddata', ready);
+          video.addEventListener('canplay', ready);
+          video.addEventListener('error', failed);
+          ready();
+        });
+      }
       syntheticCam.classList.add('hidden');
       syncCamBtnState();
       return true;
     } catch (e) {
+      lastCameraError = e && e.name ? e.name : String(e);
       dbgLog('camera-unavailable', { err: String(e) });
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.srcObject = null;
       return false;
     }
   }
@@ -820,29 +862,40 @@
     const inRound = !ui.classList.contains('hidden') || !openUi.classList.contains('hidden');
     if (onStart || onEnd || !inRound) { camOffBtn.classList.add('hidden'); return; }
     camOffBtn.classList.remove('hidden');
-    camOffBtn.textContent = stream ? '🚫 Камера' : '📷 Камера';
+    camOffBtn.classList.toggle('camera-cta', !stream);
+    camOffBtn.textContent = stream ? '🚫 Камера' : '📸 Включить камеру';
+  }
+
+  function prepareRoundCharacters() {
+    const shuffled = [...CHARACTER_SETS.keys()].sort(() => Math.random() - .5);
+    roundCharacterOrder = shuffled.slice();
+    while (roundCharacterOrder.length < OPEN_TOTAL) {
+      const refill = [...CHARACTER_SETS.keys()].sort(() => Math.random() - .5);
+      if (refill[0] === roundCharacterOrder.at(-1)) refill.push(refill.shift());
+      roundCharacterOrder.push(...refill);
+    }
   }
 
   async function prepareSyntheticReaction(reactionKey) {
     if (stream) { syntheticCharacterImage = null; return; }
-    if (!syntheticCharacterPromise) {
-      syntheticCharacterPromise = Promise.all([
-        loadImage('assets/characters/player-puzzled.png'),
-        loadImage('assets/characters/player-cringe.png'),
-        loadImage('assets/characters/player-joy.png')
-      ]).then(([puzzled, cringe, joy]) => ({ puzzled, cringe, joy })).catch(e => {
+    const set = CHARACTER_SETS[currentCharacterIndex] || CHARACTER_SETS[0];
+    if (!syntheticCharacterPromises.has(set.id)) {
+      syntheticCharacterPromises.set(set.id, Promise.all([
+        loadImage(set.neutral), loadImage(set.cringe), loadImage(set.joy)
+      ]).then(([neutral, cringe, joy]) => ({ neutral, cringe, joy })).catch(e => {
         dbgLog('character-load-error', { err:String(e) });
         return null;
-      });
+      }));
     }
-    const characters = await syntheticCharacterPromise;
+    const characters = await syntheticCharacterPromises.get(set.id);
     if (!characters) { syntheticCharacterImage = null; return; }
     syntheticCharacterImage = reactionKey === 'bad'
       ? characters.cringe
-      : reactionKey === 'normal' ? characters.puzzled : characters.joy;
+      : reactionKey === 'normal' ? characters.neutral : characters.joy;
     syntheticCam.src = syntheticCharacterImage.src;
     syntheticCam.classList.remove('hidden');
     window.__quizDebug.syntheticReaction = reactionKey;
+    window.__quizDebug.syntheticCharacter = set.id;
   }
 
   function beep(freq, dur, type = 'sine', vol = 0.15) {
@@ -2128,6 +2181,8 @@
     }
     lastOpenResult = null;
     metrikaGoal('round_start');
+    metrikaGoal(stream ? 'game_start_camera' : 'game_start_camera_free');
+    prepareRoundCharacters();
     roundShots = [];
     document.getElementById('roundStrip').classList.add('hidden');
     stopFx();
@@ -2142,6 +2197,7 @@
   }
 
   function nextSituation() {
+    currentCharacterIndex = roundCharacterOrder[openIndex] ?? 0;
     syncCamBtnState();
     clearRecTimer();
     stopFx();
@@ -2515,6 +2571,7 @@
     startPending = false;
     startScreen.classList.add('hidden');
     stopMenuMusic();
+    metrikaGoal(stream ? 'game_start_camera' : 'game_start_camera_free', { mode:'quiz' });
     startGame();
   };
 
@@ -2604,6 +2661,7 @@
   };
 
   cameraReplayBtn.onclick = async () => {
+    metrikaGoal('camera_replay_click');
     cameraReplayBtn.disabled = true;
     cameraReplayBtn.textContent = '◌ Включаем камеру…';
     let ok = await startCamera();
@@ -2614,17 +2672,30 @@
     cameraReplayBtn.disabled = false;
     cameraReplayBtn.textContent = '📸 Переиграть с камерой';
     if (!ok) {
+      metrikaGoal('camera_replay_failed', { reason:lastCameraError || 'model' });
       document.getElementById('endText').textContent = 'Не удалось включить камеру. Проверь разрешение браузера и попробуй ещё раз.';
       return;
     }
     syntheticCharacterImage = null;
     stopMenuMusic();
     const started = await startOpenGame();
-    if (!started) { stopCamera(); playMenuMusic(); }
+    if (!started) {
+      metrikaGoal('camera_replay_failed', { reason:'situations' });
+      stopCamera(); playMenuMusic();
+      document.getElementById('endText').textContent = 'Камера включилась, но ситуации не загрузились. Нажми ещё раз — камера запросится заново.';
+    }
   };
 
-  function metrikaGoal(goalId) {
-    try { if (window.ym) ym(112316717, 'reachGoal', goalId, { landing_variant: landingVariant || 'default', creative_variant: creativeVariant }); } catch (e) { dbgLog('metrika-error', { err: String(e) }); }
+  function metrikaGoal(goalId, extra = {}) {
+    try {
+      if (!window.ym) return;
+      const params = { landing_variant:landingVariant || 'default', creative_variant:creativeVariant, ...extra };
+      ym(112316717, 'reachGoal', goalId, params);
+      const base = location.pathname.replace(/\/$/, '');
+      ym(112316717, 'hit', `${base}/events/${encodeURIComponent(goalId)}`, {
+        title:`SelfieCringe · ${goalId}`, params
+      });
+    } catch (e) { dbgLog('metrika-error', { err: String(e) }); }
   }
 
   // собрать картинку для шаринга: фон + человек + контур + счёт
@@ -2694,12 +2765,14 @@
       syncCamBtnState();
       return;
     }
+    metrikaGoal('camera_enable_click', { source:'round' });
     camOffBtn.textContent = '◌ Камера…';
     const ok = await startCamera();
     if (ok && !segmenter) {
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
       if (!model) { stopCamera(); ok = false; }
     }
+    metrikaGoal(ok ? 'camera_enabled' : 'camera_enable_failed', { source:'round', reason:ok ? 'ok' : (lastCameraError || 'model') });
     syncCamBtnState();
   };
 
