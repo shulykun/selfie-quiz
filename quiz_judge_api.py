@@ -224,7 +224,7 @@ def judge(situation: str, answer: str) -> dict:
                 "temperature": 0.7,
                 "response_format": {"type": "json_object"},
             },
-            timeout=30,
+            timeout=10,
         )
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"]
