@@ -755,6 +755,7 @@
   let lastFxTime = 0;
   let layerRevealAt = 0;
   let currentBgKind = null;
+  let maskRunId = 0;
   const renderDpr = Math.min(window.devicePixelRatio || 1, 2);
   const MENU_MUSIC_VOLUME = 0.18;
   let menuMusicFade = null;
@@ -1459,7 +1460,10 @@
     layerRevealAt = stream ? 0 : performance.now();
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
-    makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
+    const thisMaskRun = maskRunId;
+    makeMask().then(res => {
+      if (thisMaskRun === maskRunId) applyMaskResult(res);
+    }).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     // Комиксный impact burst при победе: звёзды, точки, молнии и штрихи.
     impactParticles = [];
     if (reaction.particleCount) {
@@ -1530,7 +1534,10 @@
     layerRevealAt = stream ? 0 : performance.now();
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
-    makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
+    const thisMaskRun = maskRunId;
+    makeMask().then(res => {
+      if (thisMaskRun === maskRunId) applyMaskResult(res);
+    }).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     rain = [];
     const rainCount = failureMode === 'rain' ? 150 : (failureMode === 'shock' ? 34 : 0);
     for (let i = 0; i < rainCount; i++) {
@@ -1567,6 +1574,7 @@
   }
 
   function stopFx() {
+    maskRunId++;
     effect = null;
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     rain = []; impactParticles = []; sparkles = []; popTexts = [];
@@ -2326,6 +2334,9 @@
     // лоадер: жюри оценивает 3-5 с
     const loader = document.getElementById('judgeLoader');
     loader.classList.add('show');
+    // В режиме без камеры не держим статичное фото всё время ответа API:
+    // комиксная обработка начинается сразу, а итоговая эмоция уточняется по оценке.
+    if (!stream && syntheticCharacterImage) freezeFrame('normal');
     const t0 = performance.now();
     let judge = null;
     try {
@@ -2377,7 +2388,7 @@
             openCard.classList.remove('hidden');
             resolve();
           }
-        }, 620);
+        }, 220);
         return;
       }
       setTimeout(() => {
@@ -2400,7 +2411,7 @@
     });
   }
 
-  function waitForPortraitLayers(timeout = 2500) {
+  function waitForPortraitLayers(timeout = stream ? 2500 : 900) {
     if (!stream && !syntheticCharacterImage) return Promise.resolve();
     const started = performance.now();
     return new Promise(resolve => {
