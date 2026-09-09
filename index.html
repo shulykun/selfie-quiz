@@ -153,14 +153,16 @@
   .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
   .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
-  #musicBtn {
-    position:fixed; top:max(38px, calc(env(safe-area-inset-top) + 26px)); right:14px; z-index:12;
-    display:inline-flex; align-items:center; gap:4px;
-    padding:6px 9px; color:var(--paper); background:rgba(9,6,17,.72);
-    border:2px solid var(--paper); border-radius:3px; font-size:10px; font-weight:900;
-    opacity:.85; cursor:pointer; user-select:none; line-height:1.1;
+  .music-toggle {
+    display:inline-flex; align-items:center; gap:5px; flex:0 0 auto;
+    padding:6px 10px; color:var(--paper); background:rgba(9,6,17,.78);
+    border:2px solid var(--paper); border-radius:4px;
+    font-size:11px; font-weight:900; line-height:1; cursor:pointer; user-select:none;
+    box-shadow:2px 2px 0 rgba(255,255,255,.06);
   }
-  #musicBtn:active { transform:scale(.95); opacity:1; }
+  .music-toggle:active { transform:scale(.95); opacity:1; }
+  .topActions { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .music-entry { margin-top:14px; }
   #camOff.camera-cta {
     padding:10px 13px; color:var(--ink); background:var(--yellow); border-color:var(--ink);
     opacity:1; box-shadow:4px 5px 0 var(--ink),0 8px 24px rgba(255,217,61,.45);
@@ -469,6 +471,9 @@
   <div id="top">
     <div class="logo">📸 Селфи-квиз <span>• Бой с кринжем</span></div>
     <div id="score">Счёт: <b>0</b>/6</div>
+    <div class="topActions">
+      <button type="button" class="music-toggle" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
+    </div>
   </div>
   <div id="progressWrap"><div id="progress"></div></div>
   <div id="card">
@@ -483,7 +488,10 @@
   <div id="top">
     <div class="logo">🎤 Кринж-баттл </div>
     <div id="openScore">Рейтинг: <b>0</b></div>
-    <button id="exitRoundBtn" aria-label="Выйти из раунда" title="Выйти из раунда">✕</button>
+    <div class="topActions">
+      <button type="button" class="music-toggle" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
+      <button id="exitRoundBtn" aria-label="Выйти из раунда" title="Выйти из раунда">✕</button>
+    </div>
   </div>
   <div id="progressWrap"><div id="openProgress"></div></div>
   <div id="card" class="openCard">
@@ -544,9 +552,9 @@
   <div class="landingProof landingOnly"><span>5 ситуаций</span><span>≈ 3 минуты</span><span>12+</span></div>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
   <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
+  <button type="button" class="music-toggle music-entry" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
-<button id="musicBtn" type="button" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
 
 <div id="endScreen" class="hidden">
   <div class="h1" id="endTitle">🎉</div>
@@ -769,10 +777,11 @@
   const MENU_MUSIC_VOLUME = 0.18;
   let menuMusicFade = null;
 
-  // Ручное управление музыкой (кнопка 🔊/🔇 в углу). Вкл по умолчанию,
+  // Ручное управление музыкой (кнопки 🔊/🔇: одна на входном экране внизу,
+  // другие в шапке раундов). Вкл по умолчанию;
   // флаг userMuted поднимается только нажатием кнопки и подавляет авто-старт.
   let musicUserMuted = false;
-  const musicBtn = document.getElementById('musicBtn');
+  const musicToggles = Array.from(document.querySelectorAll('.music-toggle'));
 
   function musicActuallyPlaying() {
     return !startMusic.paused && !startMusic.ended && startMusic.readyState > 2
@@ -780,10 +789,11 @@
   }
 
   function updateMusicBtn() {
-    if (!musicBtn) return;
-    const on = musicUserMuted ? false : musicActuallyPlaying();
-    musicBtn.textContent = on ? '🔇 Музыка' : '🔊 Музыка';
-    musicBtn.setAttribute('aria-label', on ? 'Выключить музыку' : 'Включить музыку');
+    musicToggles.forEach((b) => {
+      const on = musicUserMuted ? false : musicActuallyPlaying();
+      b.textContent = on ? '🔇 Музыка' : '🔊 Музыка';
+      b.setAttribute('aria-label', on ? 'Выключить музыку' : 'Включить музыку');
+    });
   }
 
   function playMenuMusic() {
@@ -832,7 +842,7 @@
     }
   }
 
-  if (musicBtn) musicBtn.addEventListener('click', toggleMusic);
+  musicToggles.forEach((b) => b.addEventListener('click', toggleMusic));
 
   playMenuMusic();
   document.addEventListener('pointerdown', function unlockMusic() {
