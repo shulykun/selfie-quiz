@@ -153,6 +153,13 @@
   .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
   .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  #musicBtn {
+    position:fixed; top:max(12px, env(safe-area-inset-top)); left:14px; z-index:12;
+    width:40px; height:40px; border-radius:99px; cursor:pointer;
+    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff;
+    font-size:18px; display:grid; place-items:center; line-height:1;
+  }
+  #musicBtn:active { transform:scale(.92); }
   #camOff.camera-cta {
     padding:10px 13px; color:var(--ink); background:var(--yellow); border-color:var(--ink);
     opacity:1; box-shadow:4px 5px 0 var(--ink),0 8px 24px rgba(255,217,61,.45);
@@ -538,6 +545,7 @@
   <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
+<button id="musicBtn" type="button" aria-label="Вкл/выкл музыку">🔇</button>
 
 <div id="endScreen" class="hidden">
   <div class="h1" id="endTitle">🎉</div>
@@ -760,31 +768,79 @@
   const MENU_MUSIC_VOLUME = 0.18;
   let menuMusicFade = null;
 
+  // Ручное управление музыкой (кнопка 🔊/🔇 в углу). Вкл по умолчанию,
+  // флаг userMuted поднимается только нажатием кнопки и подавляет авто-старт.
+  let musicUserMuted = false;
+  const musicBtn = document.getElementById('musicBtn');
+
+  function musicActuallyPlaying() {
+    return !startMusic.paused && !startMusic.ended && startMusic.readyState > 2
+      && !startMusic.muted;
+  }
+
+  function updateMusicBtn() {
+    if (!musicBtn) return;
+    const on = musicUserMuted ? false : musicActuallyPlaying();
+    musicBtn.textContent = on ? '🔇' : '🔊';
+    musicBtn.setAttribute('aria-label', on ? 'Выключить музыку' : 'Включить музыку');
+  }
+
   function playMenuMusic() {
+    if (musicUserMuted) { updateMusicBtn(); return; }
     if (startScreen.classList.contains('hidden') && endScreen.classList.contains('hidden')) return;
     if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
     startMusic.volume = MENU_MUSIC_VOLUME;
-    startMusic.play().catch(() => {});
+    startMusic.play().then(updateMusicBtn).catch(() => updateMusicBtn());
   }
 
   function stopMenuMusic() {
-    if (startMusic.paused) return;
-    if (menuMusicFade) clearInterval(menuMusicFade);
+    // Надёжный стоп: снимаем фейд и тушим/паузим ВСЕГДА. Ранний выход по
+    // startMusic.paused опасен гонкой на iOS (play() ещё не зарезолвился,
+    // а paused=true → музыка «дозвенела» уже в раунде).
+    if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
+    const wasPlaying = musicActuallyPlaying();
+    if (!wasPlaying) { startMusic.pause(); updateMusicBtn(); return; }
     const step = Math.max(startMusic.volume / 6, 0.01);
     menuMusicFade = setInterval(() => {
       startMusic.volume = Math.max(0, startMusic.volume - step);
-      if (startMusic.volume > 0) return;
+      if (startMusic.volume > 0) { updateMusicBtn(); return; }
       clearInterval(menuMusicFade);
       menuMusicFade = null;
       startMusic.pause();
       startMusic.currentTime = 0;
       startMusic.volume = MENU_MUSIC_VOLUME;
+      updateMusicBtn();
     }, 40);
   }
 
+  function toggleMusic() {
+    if (musicUserMuted || !musicActuallyPlaying()) {
+      // Включаем (снимаем мьют и запускаем) — по клику это разрешённый жест.
+      musicUserMuted = false;
+      if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; startMusic.volume = MENU_MUSIC_VOLUME; }
+      startMusic.currentTime = 0;
+      startMusic.play().then(updateMusicBtn).catch(() => updateMusicBtn());
+    } else {
+      // Выключаем насовсем: юзер явно заткнул музыку — до конца раунда/до клика.
+      musicUserMuted = true;
+      if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
+      startMusic.pause();
+      startMusic.currentTime = 0;
+      startMusic.volume = MENU_MUSIC_VOLUME;
+      updateMusicBtn();
+    }
+  }
+
+  if (musicBtn) musicBtn.addEventListener('click', toggleMusic);
+
   playMenuMusic();
-  document.addEventListener('pointerdown', playMenuMusic, { once:true });
-  document.addEventListener('keydown', playMenuMusic, { once:true });
+  document.addEventListener('pointerdown', function unlockMusic() {
+    if (!musicUserMuted) playMenuMusic();
+  }, { once:true });
+  document.addEventListener('keydown', function unlockMusic() {
+    if (!musicUserMuted) playMenuMusic();
+  }, { once:true });
+  setInterval(updateMusicBtn, 1000);
 
   // Рисуем как CSS object-fit: cover, без растягивания лица и тела.
   function drawCover(target, source, w, h, mirror = false) {
