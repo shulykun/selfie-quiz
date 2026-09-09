@@ -155,11 +155,12 @@
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
   #musicBtn {
     position:fixed; top:max(38px, calc(env(safe-area-inset-top) + 26px)); right:14px; z-index:12;
-    width:40px; height:40px; border-radius:99px; cursor:pointer;
-    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff;
-    font-size:18px; display:grid; place-items:center; line-height:1;
+    display:inline-flex; align-items:center; gap:4px;
+    padding:6px 9px; color:var(--paper); background:rgba(9,6,17,.72);
+    border:2px solid var(--paper); border-radius:3px; font-size:10px; font-weight:900;
+    opacity:.85; cursor:pointer; user-select:none; line-height:1.1;
   }
-  #musicBtn:active { transform:scale(.92); }
+  #musicBtn:active { transform:scale(.95); opacity:1; }
   #camOff.camera-cta {
     padding:10px 13px; color:var(--ink); background:var(--yellow); border-color:var(--ink);
     opacity:1; box-shadow:4px 5px 0 var(--ink),0 8px 24px rgba(255,217,61,.45);
@@ -545,7 +546,7 @@
   <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
-<button id="musicBtn" type="button" aria-label="Вкл/выкл музыку">🔇</button>
+<button id="musicBtn" type="button" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
 
 <div id="endScreen" class="hidden">
   <div class="h1" id="endTitle">🎉</div>
@@ -781,7 +782,7 @@
   function updateMusicBtn() {
     if (!musicBtn) return;
     const on = musicUserMuted ? false : musicActuallyPlaying();
-    musicBtn.textContent = on ? '🔇' : '🔊';
+    musicBtn.textContent = on ? '🔇 Музыка' : '🔊 Музыка';
     musicBtn.setAttribute('aria-label', on ? 'Выключить музыку' : 'Включить музыку');
   }
 
