@@ -183,6 +183,22 @@
     box-shadow:0 6px 24px rgba(0,0,0,.4); display:none; max-width:90%;
   }
   #segError.show { display:block; }
+  #camHelp {
+    position:fixed; top:max(14px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    z-index:9; display:none; align-items:flex-start; gap:10px; max-width:min(92%,360px);
+    padding:11px 13px; color:var(--paper); background:var(--red); border:3px solid var(--ink);
+    border-radius:4px; box-shadow:5px 5px 0 var(--ink);
+    font:800 12px/1.35 -apple-system,Segoe UI,Roboto,sans-serif; text-align:left;
+  }
+  #camHelp.show { display:flex; }
+  #camHelp .chIcon { font-size:18px; line-height:1; flex:0 0 auto; }
+  #camHelp .chText { flex:1 1 auto; }
+  #camHelp .chText b { display:block; margin-bottom:2px; font-weight:1000; }
+  #camHelp .chClose {
+    flex:0 0 auto; align-self:flex-start; width:22px; height:22px; padding:0; cursor:pointer;
+    color:var(--ink); background:var(--yellow); border:2px solid var(--ink); border-radius:3px;
+    font:1000 13px/1 Arial,sans-serif;
+  }
   #poseCue {
     position:fixed; inset:0; z-index:4; display:none; place-items:center;
     pointer-events:none; text-align:center;
@@ -631,6 +647,11 @@
 
 <button id="camOff" class="hidden">🚫 Камера</button>
 <div id="segError"></div>
+<div id="camHelp" role="alert" aria-live="assertive">
+  <span class="chIcon">📷</span>
+  <span class="chText"><b class="chTitle"></b><span class="chBody"></span></span>
+  <button class="chClose" type="button" aria-label="Закрыть">✕</button>
+</div>
 <div id="aiStatus"></div>
 <div id="styleLab" aria-label="Лаборатория портрета">
   <button data-style="original">Original</button>
@@ -690,6 +711,32 @@
   const startMusic = document.getElementById('startMusic');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
+  const camHelp = document.getElementById('camHelp');
+  const camHelpTitle = camHelp.querySelector('.chTitle');
+  const camHelpBody = camHelp.querySelector('.chBody');
+  camHelp.querySelector('.chClose').onclick = () => camHelp.classList.remove('show');
+  let camHelpTimer = null;
+  // Показывает понятную подсказку по причине отказа камеры.
+  function showCamHelp(kind) {
+    const copy = {
+      denied: { t: 'Доступ к камере закрыт', b: 'Разреши камеру для сайта в настройках браузера (значок 🔒/ⓘ рядом с адресом) и попробуй снова.' },
+      dismissed: { t: 'Запрос камеры не подтверждён', b: 'Нажми «Разрешить», когда браузер спросит про камеру. Если окна не было — открой настройки сайта и разреши камеру.' },
+      busy: { t: 'Камера занята', b: 'Камеру использует другое приложение. Закрой его и нажми ещё раз.' },
+      nodevice: { t: 'Камера не найдена', b: 'На этом устройстве нет доступной камеры — можно играть в режиме комикс-карточек без камеры.' },
+      insecure: { t: 'Нужен безопасный адрес', b: 'Камера работает только на https. Открой игру по адресу https://… и попробуй снова.' },
+      generic: { t: 'Камера не включилась', b: 'Попробуй ещё раз или играй в режиме комикс-карточек без камеры.' }
+    }[kind] || null;
+    if (!copy) { camHelp.classList.remove('show'); return; }
+    camHelpTitle.textContent = copy.t;
+    camHelpBody.textContent = copy.b;
+    camHelp.classList.add('show');
+    clearTimeout(camHelpTimer);
+    // авто-скрытие только для мягких подсказок
+    if (kind !== 'denied' && kind !== 'dismissed' && kind !== 'insecure') {
+      camHelpTimer = setTimeout(() => camHelp.classList.remove('show'), 7000);
+    }
+  }
+  function hideCamHelp() { clearTimeout(camHelpTimer); camHelp.classList.remove('show'); }
   const cameraReplayBtn = document.getElementById('cameraReplayBtn');
   const styleLab = document.getElementById('styleLab');
   const query = new URLSearchParams(location.search);
@@ -794,6 +841,7 @@
   // Раньше всё сливалось в one-word lastCameraError, и часть 'camera_enable_failed'
   // вообще была про загрузку ML-модели, а не про камеру.
   let lastCameraError = '';       // reason по месту: getUserMedia_reject:NotAllowedError / frame_timeout / model_load_fail ...
+  let lastCamKind = '';           // категория для UI: denied | dismissed | busy | nodevice | insecure | timeout | generic
   let lastCamStage = 'camera';    // 'camera' | 'model' | 'never' — где именно провал
   function detectPlatform() {
     const ua = navigator.userAgent || '';
@@ -986,31 +1034,89 @@
   window.addEventListener('resize', resize);
   resize();
 
+  // Классификация ошибки getUserMedia → понятная категория для UI.
+  function classifyCamError(e) {
+    const n = (e && e.name) ? e.name : '';
+    const m = (e && e.message) ? String(e.message) : '';
+    if (/timeout/i.test(m)) return 'timeout';
+    if (n === 'NotAllowedError') {
+      // denied — уже явно запрещено; prompt — запрос не подтверждён/закрыт
+      return (window.__camPermission === 'denied') ? 'denied' : 'dismissed';
+    }
+    if (n === 'NotReadableError' || n === 'TrackStartError' || n === 'AbortError') return 'busy';
+    if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') return 'nodevice';
+    if (n === 'SecurityError') return 'insecure';
+    return 'generic';
+  }
+  // Одна попытка getUserMedia (с таймаутом для iOS-зависаний).
+  async function tryGetUserMedia() {
+    const gUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+    if (!gUM) throw new TypeError('getUserMedia unavailable');
+    return Promise.race([
+      gUM.call(navigator.mediaDevices, {
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('getUserMedia timeout (>9s)')), 9000)),
+    ]);
+  }
+
   async function startCamera() {
     lastCamStage = 'camera';
     lastCameraError = '';
+    lastCamKind = '';
+    // Обновляем состояние разрешения перед запросом (может измениться между визитами).
+    window.__camPermission = await getCamPermission();
+    // Если браузер уже знает, что доступ закрыт — не дёргаем getUserMedia впустую,
+    // сразу даём инструкцию (иначе будет мгновенный NotAllowedError).
+    if (window.__camPermission === 'denied') {
+      const e = new DOMException('Permission denied', 'NotAllowedError');
+      lastCameraError = 'getUserMedia_reject:NotAllowedError';
+      lastCamKind = 'denied';
+      dbgLog('camera-unavailable', { err: 'precheck:permission=denied', ...camDiagContext() });
+      showCamHelp('denied');
+      return false;
+    }
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      lastCameraError = 'insecure_context';
+      lastCamKind = 'insecure';
+      dbgLog('camera-unavailable', { err: 'insecure context', ...camDiagContext() });
+      showCamHelp('insecure');
+      return false;
+    }
     // iOS: при отказе getUserMedia может ДОЛГО не резолвиться — ни resolve, ни reject.
     // Ловим через race, чтобы не зависать в 'Включаем камеру…' и получить причину.
-    let gUM;
-    try {
-      gUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
-      if (!gUM) throw new TypeError('getUserMedia unavailable');
-      stream = await Promise.race([
-        gUM.call(navigator.mediaDevices, {
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('getUserMedia timeout (>9s)')), 9000)),
-      ]);
-    } catch (e) {
+    let attemptErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        stream = await tryGetUserMedia();
+        attemptErr = null;
+        break;
+      } catch (e) {
+        attemptErr = e;
+        // Ретрай только если запрос не подтверждён (prompt/dismissed) — иногда второй проходит.
+        const kind = classifyCamError(e);
+        if (attempt === 0 && kind === 'dismissed') {
+          dbgLog('camera-retry', { attempt: 1, err: String(e), ...camDiagContext() });
+          await new Promise(r => setTimeout(r, 350));
+          continue;
+        }
+        break;
+      }
+    }
+    if (attemptErr) {
+      const e = attemptErr;
       // user отклонил / нет прав / нет устройства / нет WebRTC / зависло
       lastCameraError = 'getUserMedia_reject:' + (e && e.name ? e.name : String(e));
-      dbgLog('camera-unavailable', { err: String(e), ...camDiagContext() });
+      lastCamKind = classifyCamError(e);
+      dbgLog('camera-unavailable', { err: String(e), kind: lastCamKind, ...camDiagContext() });
       if (stream) stream.getTracks().forEach(t => t.stop());
       stream = null;
       video.srcObject = null;
+      showCamHelp(lastCamKind);
       return false;
     }
+    hideCamHelp();
     try {
       video.srcObject = stream;
       // Поток ещё не означает, что браузер начал отдавать кадры. Особенно заметно
@@ -3023,6 +3129,7 @@
     metrikaGoal(ok ? 'camera_enabled' : 'camera_enable_failed', {
       source:'round',
       ok,
+      kind: ok ? 'ok' : (lastCamKind || 'generic'),
       ...camDiagContext(ok ? 'ok' : (cameraErr || lastCameraError)) // stage | reason | platform | secure | permission | inIframe
     });
     syncCamBtnState();
