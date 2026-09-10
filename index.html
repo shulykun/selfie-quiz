@@ -1192,6 +1192,13 @@
       openBtn.disabled = false;
       openBtn.textContent = landingVariant === 'duel' ? '▶ Принять вызов' : landingVariant === 'result' ? '▶ Узнать свой рейтинг' : '▶ Начать баттл';
       modelHint.textContent = 'MODEL READY // эффекты готовы';
+    } else if (state === 'idle') {
+      // тихое состояние: кнопки активны, без надписей про модель
+      startBtn.disabled = false;
+      startBtn.textContent = '▶ Играть';
+      openBtn.disabled = false;
+      openBtn.textContent = landingVariant === 'duel' ? '▶ Принять вызов' : landingVariant === 'result' ? '▶ Узнать свой рейтинг' : '▶ Начать баттл';
+      modelHint.textContent = '';
     } else {
       startBtn.disabled = false;
       startBtn.textContent = '↻ Повторить загрузку';
@@ -1201,10 +1208,12 @@
     }
   }
 
-  function initSelfieSeg(force = false) {
+  function initSelfieSeg(force = false, quiet = false) {
     if (segmenter && !force) return Promise.resolve(segmenter);
     if (modelInitPromise && !force) return modelInitPromise;
-    setStartModelState('loading');
+    // quiet=true — фоновая предзагрузка: не трогаем состояние кнопок,
+    // чтобы не блокировать старт игры, пока модель докачивается.
+    if (!quiet) setStartModelState('loading');
     modelInitPromise = (async () => {
       try {
       window.__quizDebug.segState = 'loading';
@@ -1222,7 +1231,7 @@
         outputCategoryMask: true
       });
       window.__quizDebug.segState = 'ready';
-      setStartModelState('ready');
+      if (!quiet) setStartModelState('ready');
       setAiStatus('AI: готово ✓');
       if (!portraitLabEnabled) setTimeout(() => setAiStatus('', false), 1100);
       return segmenter;
@@ -1230,13 +1239,36 @@
       window.__quizDebug.segState = 'init-error';
       window.__quizDebug.segError = String(e);
       modelInitPromise = null;
-      setStartModelState('error');
+      if (!quiet) setStartModelState('error');
+      else { setStartModelState('idle'); }
       setAiStatus('AI: недоступно');
       return null;
     }
     })();
     return modelInitPromise;
   }
+
+  // --- Фоновая предзагрузка модели эффектов с начала визита ---
+  // Догружаем MediaPipe/WASM сразу после первой отрисовки, чтобы к моменту
+  // клика по «Играть» модель была готова — без блокировки кнопок.
+  // ⚠️ Не трогает состояние кнопок (quiet=true) — только фоновое прогревание.
+  function warmupSelfieSeg() {
+    if (segmenter || modelInitPromise) return; // уже грузится/готова → не дублируем
+    dbgLog('seg-warmup-start', { segState: window.__quizDebug.segState });
+    setAiStatus('AI: готовим эффекты…');
+    initSelfieSeg(false, true).then(m => {
+      dbgLog('seg-warmup-done', { ok: !!m, segState: window.__quizDebug.segState });
+    });
+  }
+  // Планируем прогрев после первой отрисовки/idle, чтобы не мешать рендеру и метрике.
+  (function scheduleWarmup() {
+    const run = () => warmupSelfieSeg();
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      setTimeout(run, 1200);
+    }
+  })();
 
   // один раз гоняем кадр через MediaPipe → маска человека (canvas)
   // без фолбэка: ждём до 20с, иначе { mask: null, error }
