@@ -719,8 +719,8 @@
   // Показывает понятную подсказку по причине отказа камеры.
   function showCamHelp(kind) {
     const copy = {
-      denied: { t: 'Доступ к камере закрыт', b: 'Разреши камеру для сайта в настройках браузера (значок 🔒/ⓘ рядом с адресом) и попробуй снова.' },
-      dismissed: { t: 'Запрос камеры не подтверждён', b: 'Нажми «Разрешить», когда браузер спросит про камеру. Если окна не было — открой настройки сайта и разреши камеру.' },
+      denied: { t: 'Нужно разрешить камеру', b: 'Нажми «Разрешить» в запросе браузера. Если окно не появилось — открой настройки сайта (значок 🔒/ⓘ рядом с адресом) и разреши камеру.' },
+      dismissed: { t: 'Нужно разрешить камеру', b: 'Нажми «Разрешить» в запросе браузера. Если окно не появилось — открой настройки сайта (значок 🔒/ⓘ рядом с адресом) и разреши камеру.' },
       busy: { t: 'Камера занята', b: 'Камеру использует другое приложение. Закрой его и нажми ещё раз.' },
       nodevice: { t: 'Камера не найдена', b: 'На этом устройстве нет доступной камеры — можно играть в режиме комикс-карточек без камеры.' },
       insecure: { t: 'Нужен безопасный адрес', b: 'Камера работает только на https. Открой игру по адресу https://… и попробуй снова.' },
@@ -852,7 +852,8 @@
     return 'desktop';
   }
   // 'granted'|'denied'|'prompt'|'unsupported' — что браузер уже знает о разрешении на камеру.
-  // На iOS Safari всегда 'unsupported', на desktop Chrome/Edge даёт настоящее состояние.
+  // ⚠️ На части Android Chrome это НЕТОЧНО (может сказать 'denied' до ответа на промпт),
+  // поэтому используем только для диагностики, а не как решающий фактор.
   async function getCamPermission() {
     try {
       if (!navigator.permissions || !navigator.permissions.query) return 'unsupported';
@@ -1066,17 +1067,10 @@
     lastCameraError = '';
     lastCamKind = '';
     // Обновляем состояние разрешения перед запросом (может измениться между визитами).
+    // ⚠️ НЕ используем это как блокировку: часть браузеров (Android Chrome) отдаёт
+    // 'denied' ещё ДО ответа на промпт, хотя getUserMedia сам умеет показать железный запрос.
+    // Поэтому всегда пробуем getUserMedia — именно он триггерит аппаратный промпт.
     window.__camPermission = await getCamPermission();
-    // Если браузер уже знает, что доступ закрыт — не дёргаем getUserMedia впустую,
-    // сразу даём инструкцию (иначе будет мгновенный NotAllowedError).
-    if (window.__camPermission === 'denied') {
-      const e = new DOMException('Permission denied', 'NotAllowedError');
-      lastCameraError = 'getUserMedia_reject:NotAllowedError';
-      lastCamKind = 'denied';
-      dbgLog('camera-unavailable', { err: 'precheck:permission=denied', ...camDiagContext() });
-      showCamHelp('denied');
-      return false;
-    }
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       lastCameraError = 'insecure_context';
       lastCamKind = 'insecure';
@@ -1086,6 +1080,7 @@
     }
     // iOS: при отказе getUserMedia может ДОЛГО не резолвиться — ни resolve, ни reject.
     // Ловим через race, чтобы не зависать в 'Включаем камеру…' и получить причину.
+    // Ретрай 1 раз при NotAllowedError (промпт мог закрыться/моргнуть; состояние query бывает неточным).
     let attemptErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -1094,7 +1089,6 @@
         break;
       } catch (e) {
         attemptErr = e;
-        // Ретрай только если запрос не подтверждён (prompt/dismissed) — иногда второй проходит.
         const kind = classifyCamError(e);
         if (attempt === 0 && kind === 'dismissed') {
           dbgLog('camera-retry', { attempt: 1, err: String(e), ...camDiagContext() });
