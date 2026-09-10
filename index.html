@@ -2,17 +2,32 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+ (function(m,e,t,r,i,k,a){
+ m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+ m[i].l=1*new Date();
+ for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+ k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+ })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112316717', 'ym');
+
+ ym(112316717, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/112316717" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Селфи-квиз</title>
+<title>Бой с кринжем - выходи с блеском из неловких ситуаций</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; background:#0b0b12; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#fff; }
-  #cam {
+  #cam, #syntheticCam {
     position:fixed; inset:0; width:100%; height:100%; object-fit:cover;
-    transform:scaleX(-1); z-index:0;
+    z-index:0;
   }
+  #cam { transform:scaleX(-1); }
   #fx { position:fixed; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; }
   #ui { position:fixed; inset:0; z-index:2; display:flex; flex-direction:column; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+  #openUi { position:fixed; inset:0; z-index:2; display:flex; flex-direction:column; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
 
   /* затемнение для читаемости */
   #ui::before {
@@ -65,6 +80,28 @@
   }
   #loseOverlay .big { font-size:40px; font-weight:900; text-shadow:0 4px 20px rgba(0,0,0,.7); text-align:center; line-height:1.2; }
   #loseOverlay .sub { font-size:16px; opacity:.9; font-weight:600; margin-top:6px; }
+  #judgeLoader {
+    background:rgba(9,6,17,.9); display:flex; align-items:center; justify-content:center; z-index:7;
+    transition:opacity .2s ease;
+  }
+  #judgeLoader .loaderBox { text-align:center; color:var(--paper); padding:0 20px; }
+  #judgeLoader .spinner {
+    width:54px; height:54px; margin:0 auto 16px; border:6px solid var(--paper);
+    border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #judgeLoader .loaderText { font-size:15px; font-weight:900; text-transform:uppercase; letter-spacing:1.5px; }
+  #scoreBlock { margin-top:6px; padding-top:6px; border-top:3px dashed rgba(9,6,17,.3); text-align:center; }
+  #scoreBig {
+    font:1000 clamp(56px,16vw,110px)/.9 Impact,Arial Black,sans-serif; color:var(--yellow);
+    -webkit-text-stroke:5px var(--ink); paint-order:stroke fill; letter-spacing:-2px; margin-bottom:4px;
+  }
+  #verdictText { margin-top:8px; padding:8px 10px; border:3px solid var(--ink); background:#fff; border-radius:4px; font-size:14px; font-weight:800; line-height:1.35; text-align:left; }
+  .scoreActions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .scoreActions .btn {
+    width:100%; min-height:42px; margin:0; padding:7px 8px; font-size:11px;
+    line-height:1.1; white-space:nowrap; box-shadow:3px 4px 0 var(--ink);
+  }
   .show { opacity:1 !important; }
 
   #startScreen, #endScreen {
@@ -88,6 +125,13 @@
   #modelHint { min-height:20px; margin-top:10px; font:800 11px/1.35 ui-monospace,monospace; letter-spacing:.7px; color:#dce9f2; }
   .endBtns { display:flex; gap:10px; margin-top:18px; }
   .endBtns .btn { margin-top:0; }
+  #cameraReplayBtn {
+    flex:1 0 100%; order:-1; padding:18px 22px; font-size:20px;
+    color:var(--ink); background:linear-gradient(90deg,#ffe34d,#ff9f2f);
+    border:3px solid var(--ink); box-shadow:7px 8px 0 var(--ink),0 12px 34px rgba(255,174,45,.5);
+    animation:cameraCtaPulse 1.8s ease-in-out infinite;
+  }
+  #endScreen.cameraUpsell .endBtns { flex-wrap:wrap; }
   .btn.secondary {
     background:rgba(255,255,255,.12); color:#fff; box-shadow:none;
     border:1px solid rgba(255,255,255,.28);
@@ -101,9 +145,31 @@
     height:118px; width:auto; border-radius:10px;
     border:2px solid rgba(255,255,255,.25); flex-shrink:0; cursor:pointer;
   }
+  #roundHero {
+    display:block; width:min(100%, 280px); max-height:38vh; margin:16px auto 2px;
+    object-fit:cover; object-position:center; border:4px solid var(--ink); border-radius:4px;
+    box-shadow:7px 8px 0 var(--ink); cursor:pointer;
+  }
   .h1 { font-size:30px; font-weight:900; margin-bottom:8px; }
   .p { font-size:15px; opacity:.85; line-height:1.5; max-width:340px; }
   #camOff { position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:6; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  .music-toggle {
+    display:inline-flex; align-items:center; gap:5px; flex:0 0 auto;
+    padding:6px 10px; color:var(--paper); background:rgba(9,6,17,.78);
+    border:2px solid var(--paper); border-radius:4px;
+    font-size:11px; font-weight:900; line-height:1; cursor:pointer; user-select:none;
+    box-shadow:2px 2px 0 rgba(255,255,255,.06);
+  }
+  .music-toggle:active { transform:scale(.95); opacity:1; }
+  .topActions { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .music-entry { margin-top:14px; }
+  #camOff.camera-cta {
+    padding:10px 13px; color:var(--ink); background:var(--yellow); border-color:var(--ink);
+    opacity:1; box-shadow:4px 5px 0 var(--ink),0 8px 24px rgba(255,217,61,.45);
+    animation:cameraCtaPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes cameraCtaPulse { 50% { transform:scale(1.045); filter:brightness(1.08); } }
+  @media (prefers-reduced-motion:reduce) { #cameraReplayBtn,#camOff.camera-cta { animation:none; } }
   #aiStatus {
     position:fixed; bottom:10px; right:12px; z-index:9; font-size:11px; opacity:.8;
     background:rgba(0,0,0,.45); border-radius:99px; padding:4px 10px; color:#fff;
@@ -130,6 +196,9 @@
   }
   #poseCue.good .cue { background:#ffe34f; }
   #poseCue.bad .cue { color:#fff8df; background:#e5484d; }
+  #poseCue.normal .cue { background:var(--cyan); }
+  #poseCue.super .cue { background:var(--yellow); }
+  #poseCue.mega .cue { color:var(--paper); background:var(--magenta); }
   #poseCue.count .cue { min-width:104px; border-radius:50%; transform:rotate(2deg); }
   #poseCue.snap .cue { color:#fff8df; background:#090611; border-color:#fff8df; box-shadow:8px 8px 0 #e5484d; }
   #poseCue.bump .cue { animation:pose-bump .28s cubic-bezier(.16,1.3,.35,1) both; }
@@ -181,6 +250,7 @@
   .btn:active { transform:translate(5px,6px); box-shadow:2px 2px 0 var(--ink); }
   .btn.secondary { color:var(--paper); background:var(--cyan); border:4px solid var(--ink); box-shadow:7px 8px 0 var(--ink); }
   #ui { padding:max(13px, env(safe-area-inset-top)) 13px max(13px, env(safe-area-inset-bottom)); }
+  #openUi { padding:max(13px, env(safe-area-inset-top)) 13px max(13px, env(safe-area-inset-bottom)); }
   #ui::before { background:linear-gradient(180deg,rgba(9,6,17,.5),transparent 35%,rgba(9,6,17,.12)); }
   #top { gap:8px; align-items:flex-start; }
   #top .logo {
@@ -227,6 +297,7 @@
   #endScreen .p { flex-shrink:0; }
   #roundStrip { width:100%; margin:18px 0 8px; padding:8px 6px 13px; gap:10px; }
   #roundStrip img { height:132px; border:4px solid var(--ink); border-radius:3px; box-shadow:5px 6px 0 var(--ink); }
+  #roundStrip img.active { border-color:var(--yellow); transform:translateY(-5px); }
   .endBtns { flex-wrap:wrap; justify-content:center; margin-top:14px; padding-bottom:max(16px, env(safe-area-inset-bottom)); }
   .endBtns .btn { padding:12px 18px; font-size:13px; }
   #camOff { top:max(82px, calc(env(safe-area-inset-top) + 68px)); padding:6px 9px; color:var(--paper); background:rgba(9,6,17,.72); border:2px solid var(--paper); border-radius:3px; font-size:10px; font-weight:900; opacity:.75; }
@@ -247,17 +318,162 @@
   .answers { gap:6px; }
   .ans { min-height:37px; padding:6px; font-size:12px; box-shadow:2px 3px 0 var(--ink); }
   .btn.next { margin-top:9px; padding:8px 12px; }
+
+  /* ---------- Открытые вопросы (MVP) ---------- */
+  #openUi #top { align-items:center; }
+  #openUi #top .logo { max-width:58%; }
+  #openScore { padding:7px 9px; color:var(--paper); background:var(--ink); border:3px solid var(--paper); font-size:12px; font-weight:900; opacity:1; text-shadow:none; transform:rotate(1deg); }
+  #exitRoundBtn {
+    flex:0 0 34px; width:34px; height:34px; padding:0; margin:0; color:var(--paper);
+    background:var(--red); border:3px solid var(--ink); border-radius:3px;
+    box-shadow:3px 3px 0 var(--ink); font-size:17px; font-weight:1000; cursor:pointer;
+  }
+  #openScore b { color:var(--yellow); }
+  #openNum { display:inline-block; margin:-30px 0 9px -5px; padding:5px 9px; color:var(--paper); background:var(--red); border:3px solid var(--ink); font-size:10px; box-shadow:3px 3px 0 var(--ink); transform:rotate(-2deg); }
+  #situationText { color:var(--ink); font-size:18px; line-height:1.3; font-weight:800; letter-spacing:-.25px; margin-bottom:8px; }
+  .btn.small { margin-top:10px; padding:8px 14px; font-size:12px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
+  .btn.small.secondary { color:var(--ink); background:var(--paper); }
+  .openAnswerBox { margin-top:10px; padding-top:10px; border-top:3px dashed rgba(9,6,17,.3); }
+  #recStatus { display:none; font-size:12px; font-weight:900; color:#e5484d; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
+  #recStatus.show { display:block; }
+  #recStatus.recording { animation:rec-pulse 1s ease-in-out infinite; }
+  @keyframes rec-pulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+  #answerText { font-size:15px; font-weight:800; line-height:1.35; padding:8px 10px; margin-bottom:6px; border:3px solid var(--ink); background:#fff; border-radius:4px; }
+  #answerInput { width:100%; box-sizing:border-box; padding:9px 10px; font-size:14px; font-weight:700; border:3px solid var(--ink); border-radius:4px; background:#fff; color:var(--ink); font-family:inherit; }
+  .openBtns { display:flex; gap:8px; flex-wrap:wrap; }
+  #stopRecBtn { color:var(--paper); background:var(--red); }
+  .startPromise { display:grid; gap:7px; width:min(100%,360px); margin-top:2px; }
+  .startPromise div { display:flex; align-items:center; gap:9px; text-align:left; }
+  .startPromise b { display:grid; place-items:center; flex:0 0 29px; height:29px; color:var(--paper); background:var(--red); border:2px solid var(--ink); }
+  @media (max-width:360px), (max-height:650px) {
+    #scoreBig { font-size:48px; margin-bottom:0; }
+    .scoreActions { gap:6px; margin-top:5px; }
+    .scoreActions .btn { min-height:40px; padding:6px 4px; font-size:10px; }
+    #verdictText { margin-top:6px; padding:6px 8px; font-size:12px; }
+    #situationText { font-size:14px; }
+  }
+
+  /* Маленькие экраны: компактный финальный экран, чтобы было видно выбор фото */
+  @media (max-width:600px) {
+    #endScreen { padding:54px 14px 26px; }
+    #situationText { font-size:15px; line-height:1.4; }
+    #endScreen .h1 { font-size:clamp(20px,7vw,30px); letter-spacing:-1px; -webkit-text-stroke:4px var(--ink); filter:drop-shadow(3px 4px 0 var(--ink)); margin-bottom:6px; }
+    #endScreen .p { padding:8px 12px; font-size:12px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
+    #roundHero { width:min(100%,240px); max-height:34vh; margin-top:10px; border-width:3px; box-shadow:4px 5px 0 var(--ink); }
+    #roundStrip { margin:10px 0 4px; gap:6px; }
+    #roundStrip img { height:88px; border-width:3px; box-shadow:3px 4px 0 var(--ink); }
+    .endBtns { flex-wrap:nowrap; gap:8px; margin-top:10px; }
+    .endBtns .btn { flex:1 1 0; min-width:0; margin-top:0; padding:9px 4px; font-size:11px; line-height:1.2; border-width:3px; box-shadow:4px 5px 0 var(--ink); white-space:nowrap; text-align:center; }
+  }
+  /* Правила игры: маленькая ссылка на старте (открывает cringe.roborumba.com/rules) */
+  #rulesLink {
+    margin-top:auto; padding:8px 10px 2px; display:inline-block;
+    color:var(--ink); font:800 12px/1 ui-monospace,monospace; letter-spacing:.6px;
+    text-decoration:underline dotted; text-underline-offset:3px; opacity:.75; cursor:pointer;
+  }
+  #rulesLink:active { opacity:1; }
+
+  /* ---------- Интро «Попал в кринж → Выкручивайся» (только планшет + десктоп) ---------- */
+  .cringeIntro { display:none; width:min(740px,100%); margin:2px 0 14px; text-align:left; }
+  .cringeCards { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .cringeCard {
+    position:relative; padding:13px 15px 12px; background:var(--paper);
+    border:4px solid var(--ink); border-radius:6px; box-shadow:7px 8px 0 var(--ink);
+  }
+  .cringeCard--bad { transform:rotate(-1.1deg); }
+  .cringeCard--good { transform:rotate(1.1deg); }
+  .ccHead { display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+  .ccEmoji {
+    flex:0 0 32px; display:grid; place-items:center; width:32px; height:32px;
+    font-size:17px; line-height:1; background:#fff; border:2px solid var(--ink);
+    box-shadow:2px 2px 0 var(--ink); transform:rotate(-2deg);
+  }
+  .ccTitle {
+    flex:1 1 auto; min-width:0; padding:4px 8px; color:var(--paper); background:var(--ink);
+    font:1000 13px/1.15 Impact,'Arial Black',sans-serif; text-transform:uppercase;
+    letter-spacing:.2px; box-shadow:3px 3px 0 var(--red); transform:rotate(-.6deg);
+  }
+  .cringeCard--good .ccTitle { color:var(--ink); background:var(--yellow); box-shadow:3px 3px 0 var(--ink); }
+  .ccText { margin:0; padding-top:9px; color:var(--ink); font-size:13px; font-weight:800; line-height:1.45; }
+  @media (min-width:768px) and (min-height:640px) {
+    .cringeIntro { display:block; }
+  }
+
+  /* ---------- Рекламные варианты стартового экрана ---------- */
+  .landingOnly { display:none; }
+  body[data-landing] #startScreen { justify-content:flex-start; padding:clamp(30px,7vh,72px) 22px 24px; }
+  body[data-landing] #startScreen .h1 { margin-top:auto; }
+  body[data-landing] #startScreen .startPromise { margin-top:10px; }
+  body[data-landing] #startScreen #openBtn { width:min(100%,360px); margin-top:20px; }
+  body[data-landing] #startScreen #modelHint { font-size:10px; opacity:.8; }
+  body[data-landing] #startScreen #rulesLink { margin-top:auto; }
+  body[data-landing] .cringeIntro { display:none; }
+  body[data-landing] .landingOnly { display:block; }
+  .landingEyebrow {
+    position:absolute; top:max(26px, calc(env(safe-area-inset-top) + 16px)); left:50%;
+    transform:translateX(-50%) rotate(-2deg); width:max-content; max-width:calc(100% - 44px);
+    padding:7px 11px; color:var(--paper); background:var(--ink); border:3px solid var(--paper);
+    box-shadow:4px 4px 0 var(--ink); font:900 11px/1.1 ui-monospace,monospace;
+    letter-spacing:1px; text-transform:uppercase;
+  }
+  .landingSub { max-width:350px; margin:4px 0 8px; font-size:15px; line-height:1.35; font-weight:900; }
+  .landingMeta { margin-top:12px; font:900 11px/1.2 ui-monospace,monospace; letter-spacing:.5px; }
+  .landingProof { display:flex !important; gap:8px; justify-content:center; margin-top:12px; }
+  .landingProof span { padding:6px 8px; border:2px solid var(--ink); background:rgba(255,248,223,.88); font-size:10px; font-weight:900; }
+  .landingHero { display:none; }
+
+  body[data-landing="duel"] #startScreen {
+    background:linear-gradient(145deg,rgba(255,59,79,.98) 0 48%,rgba(25,217,255,.98) 48% 100%);
+  }
+  body[data-landing="duel"] .landingEyebrow { background:var(--magenta); }
+  body[data-landing="duel"] #startScreen .h1 { max-width:430px; font-size:clamp(40px,11vw,66px); }
+  body[data-landing="duel"] #startScreen .startPromise b { background:var(--magenta); }
+  body[data-landing="duel"] #startScreen #openBtn { background:var(--yellow); animation:cta-pop 1.8s ease-in-out infinite; }
+
+  body[data-landing="result"] #startScreen {
+    background:linear-gradient(155deg,rgba(9,6,17,.98) 0 34%,rgba(255,63,180,.98) 34% 67%,rgba(255,227,79,.98) 67% 100%);
+  }
+  body[data-landing="result"] #startScreen::before { opacity:.5; background-size:12px 12px; }
+  body[data-landing="result"] .landingEyebrow { z-index:3; color:var(--ink); background:var(--yellow); border-color:var(--ink); }
+  body[data-landing="result"] #startScreen .h1 { z-index:2; align-self:flex-start; max-width:55%; color:var(--cyan); text-align:left; font-size:clamp(34px,9vw,54px); }
+  body[data-landing="result"] #startScreen .startPromise { background:#fff; transform:rotate(1deg); }
+  body[data-landing="result"] #startScreen .startPromise b { background:var(--magenta); }
+  body[data-landing="result"] #startScreen #openBtn { color:var(--paper); background:var(--red); }
+  body[data-landing="result"] .landingHero {
+    display:block; position:absolute; z-index:1; top:max(68px, calc(env(safe-area-inset-top) + 56px)); right:5px;
+    width:clamp(128px,38vw,170px); margin:0; transform:rotate(5deg);
+    border:4px solid var(--paper); box-shadow:7px 8px 0 var(--ink);
+  }
+  body[data-landing="result"] .landingHero img { display:block; width:100%; height:auto; aspect-ratio:2/3; object-fit:cover; }
+  body[data-landing="result"] .landingHero figcaption {
+    position:absolute; right:7px; bottom:8px; padding:6px 9px; color:var(--ink); background:var(--yellow);
+    border:3px solid var(--ink); box-shadow:3px 3px 0 var(--ink); font:1000 18px/1 Impact,Arial Black,sans-serif;
+    transform:rotate(-4deg);
+  }
+  @keyframes cta-pop { 0%,100% { transform:rotate(-1deg) scale(1); } 50% { transform:rotate(1deg) scale(1.035); } }
+  @media (max-height:700px) {
+    body[data-landing] #startScreen { padding-top:52px; padding-bottom:14px; }
+    body[data-landing] #startScreen .h1 { font-size:34px; margin-bottom:10px; }
+    body[data-landing] #startScreen .startPromise { gap:4px; padding:9px 12px; }
+    body[data-landing] #startScreen .startPromise b { height:24px; flex-basis:24px; }
+    body[data-landing] #startScreen #openBtn { margin-top:12px; padding:11px 20px; }
+    .landingProof { margin-top:7px; }
+  }
 </style>
 </head>
 <body>
 
 <video id="cam" playsinline muted autoplay></video>
+<img id="syntheticCam" class="hidden" alt="Персонаж режима без камеры">
 <canvas id="fx"></canvas>
 
 <div id="ui" class="hidden">
   <div id="top">
     <div class="logo">📸 Селфи-квиз <span>• Бой с кринжем</span></div>
     <div id="score">Счёт: <b>0</b>/6</div>
+    <div class="topActions">
+      <button type="button" class="music-toggle" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
+    </div>
   </div>
   <div id="progressWrap"><div id="progress"></div></div>
   <div id="card">
@@ -268,23 +484,86 @@
   </div>
 </div>
 
-<div id="winOverlay" class="flash"><div><div class="big">✓ ВЕРНО!</div><div class="sub">Стоп-кадр. Отличный ответ.</div></div></div>
-<div id="loseOverlay" class="flash"><div><div class="big">🌧 ПОРАЖЕНИЕ</div><div class="sub">Дождь идёт по тебе…</div></div></div>
+<div id="openUi" class="hidden">
+  <div id="top">
+    <div class="logo">🎤 Кринж-баттл </div>
+    <div id="openScore">Рейтинг: <b>0</b></div>
+    <div class="topActions">
+      <button type="button" class="music-toggle" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
+      <button id="exitRoundBtn" aria-label="Выйти из раунда" title="Выйти из раунда">✕</button>
+    </div>
+  </div>
+  <div id="progressWrap"><div id="openProgress"></div></div>
+  <div id="card" class="openCard">
+    <div id="openNum">Ситуация 1 из 5</div>
+    <div id="situationText">…</div>
+    <div class="openAnswerBox" id="openAnswerBox">
+      <div id="recStatus">🎙 Слушаю…</div>
+      <div id="answerText" class="hidden"></div>
+      <input id="answerInput" class="hidden" placeholder="Напиши, что ты скажешь или сделаешь">
+      <div class="openBtns">
+        <button id="recBtn" class="btn small">🎙 Говорить</button>
+        <button id="stopRecBtn" class="btn small hidden">■ Закончить</button>
+        <button id="typeBtn" class="btn small secondary">⌨ Написать</button>
+        <button id="reRecBtn" class="btn small hidden">🔄 Перезаписать</button>
+        <button id="confirmBtn" class="btn small hidden">✅ Подтвердить</button>
+      </div>
+    </div>
+    <div id="scoreBlock" class="hidden">
+      <div id="scoreBig">7/10</div>
+      <div class="scoreActions">
+        <button id="verdictToggle" class="btn small secondary">📖 Вердикт</button>
+        <button id="openNextBtn" class="btn next hidden">Дальше →</button>
+      </div>
+      <div id="verdictText" class="hidden"></div>
+    </div>
+  </div>
+</div>
+<div id="judgeLoader" class="flash"><div class="loaderBox"><div class="spinner"></div><div class="loaderText">Жюри оценивает твой ответ…</div></div></div>
 <div id="poseCue" aria-live="assertive"><div class="cue"></div></div>
 
 <div id="startScreen">
-  <div class="h1">📸 Селфи-квиз</div>
-  <div class="p">Отвечай на вопросы на камеру в режиме селфи.<br>Правильно — яркий manga-burst ✦<br>Мимо — новая драматичная сцена каждый раз</div>
-  <button class="btn" id="startBtn">▶ Играть</button>
+  <div class="landingEyebrow landingOnly" id="landingEyebrow"></div>
+  <figure class="landingHero" aria-label="Пример комикс-селфи из игры">
+    <img src="assets/images/result-landing-hero.jpg" alt="Яркое комикс-селфи — пример результата игры" width="640" height="960">
+    <figcaption>КРИНЖ 8/10</figcaption>
+  </figure>
+  <div class="h1">🎤 Кринж-баттл</div>
+  <div class="cringeIntro">
+    <div class="cringeCards">
+      <div class="cringeCard cringeCard--bad">
+        <div class="ccHead"><span class="ccEmoji">🙀</span><span class="ccTitle">Представь что ты попал в кринж</span></div>
+        <p class="ccText">Тебя застукали за странным занятием. Или забыл имя человека, с которым здороваешься уже год. Ну ты понял..</p>
+      </div>
+      <div class="cringeCard cringeCard--good">
+        <div class="ccHead"><span class="ccEmoji">💡</span><span class="ccTitle">Выкручивайся</span></div>
+        <p class="ccText">Каждая ситуация — вызов. Придумай самый остроумный, нелепый или гениальный выход и получи максимум баллов за оригинальность</p>
+      </div>
+    </div>
+  </div>
+  <div class="landingSub landingOnly" id="landingSub"></div>
+  <div class="p startPromise">
+    <div><b>1</b><span>Ответь на неловкую ситуацию</span></div>
+    <div><b>2</b><span>Покажи реакцию на камеру</span></div>
+    <div><b>3</b><span>Получи комикс-селфи и кринж-рейтинг</span></div>
+  </div>
+  <button class="btn hidden" id="startBtn">▶ Играть</button>
+  <button class="btn" id="openBtn">▶ Начать баттл</button>
+  <div class="landingProof landingOnly"><span>5 ситуаций</span><span>≈ 3 минуты</span><span>12+</span></div>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
+  <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
+  <button type="button" class="music-toggle music-entry" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
 </div>
+<audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
 
 <div id="endScreen" class="hidden">
   <div class="h1" id="endTitle">🎉</div>
   <div class="p" id="endText"></div>
+  <img id="roundHero" class="hidden" alt="Выбранный стоп-кадр">
   <div id="roundStrip" class="hidden"></div>
   <div class="endBtns">
-    <button class="btn" id="againBtn">🔄 Ещё раз</button>
+    <button class="btn hidden" id="cameraReplayBtn">📸 Переиграть с камерой</button>
+    <button class="btn" id="againBtn">🔄 Сыграть ещё</button>
     <button class="btn secondary" id="shareBtn">📤 Поделиться</button>
   </div>
 </div>
@@ -332,6 +611,7 @@
   const WIN_SCORE = 4;
 
   const video = document.getElementById('cam');
+  const syntheticCam = document.getElementById('syntheticCam');
   const canvas = document.getElementById('fx');
   const ctx = canvas.getContext('2d');
   const ui = document.getElementById('ui');
@@ -344,11 +624,47 @@
   const camOffBtn = document.getElementById('camOff');
   const shareBtn = document.getElementById('shareBtn');
   const startBtn = document.getElementById('startBtn');
+  const openBtn = document.getElementById('openBtn');
   const modelHint = document.getElementById('modelHint');
+  const startMusic = document.getElementById('startMusic');
   const aiStatus = document.getElementById('aiStatus');
   const segError = document.getElementById('segError');
+  const cameraReplayBtn = document.getElementById('cameraReplayBtn');
   const styleLab = document.getElementById('styleLab');
   const query = new URLSearchParams(location.search);
+  const landingVariant = ['duel', 'result'].includes(query.get('landing')) ? query.get('landing') : '';
+  const creativeVariant = ['1', '2', '3'].includes(query.get('creative')) ? query.get('creative') : '1';
+  if (landingVariant) {
+    document.body.dataset.landing = landingVariant;
+    const landingCopy = {
+      duel: {
+        title: 'Кто из вас не кринжанёт?',
+        eyebrow: 'Брось вызов друзьям',
+        sub: 'Пройди первым, покажи свой рейтинг — и передай телефон следующему.',
+        cta: 'Принять вызов'
+      },
+      result: {
+        title: 'Насколько ты кринж?',
+        eyebrow: 'ИИ вынесет вердикт',
+        sub: 'Ответь на 5 неловких ситуаций и получи персональный комикс-кадр.',
+        cta: 'Узнать свой рейтинг'
+      }
+    }[landingVariant];
+    document.querySelector('#startScreen .h1').textContent = landingCopy.title;
+    document.getElementById('landingEyebrow').textContent = landingCopy.eyebrow;
+    document.getElementById('landingSub').textContent = landingCopy.sub;
+    document.getElementById('openBtn').textContent = `▶ ${landingCopy.cta}`;
+    document.title = `${landingCopy.title} — Кринж-баттл`;
+    if (landingVariant === 'result') {
+      const creative = {
+        '1': { src:'assets/images/result-landing-hero.jpg', score:'КРИНЖ 8/10' },
+        '2': { src:'assets/images/result-landing-hero-2.jpg', score:'КРИНЖ 7/10' },
+        '3': { src:'assets/images/result-landing-hero-3.jpg', score:'КРИНЖ 9/10' }
+      }[creativeVariant];
+      document.querySelector('.landingHero img').src = creative.src;
+      document.querySelector('.landingHero figcaption').textContent = creative.score;
+    }
+  }
   const portraitLabEnabled = query.get('lab') === '1';
   let portraitStyle = query.get('style') || 'manga';
   let portraitStyleLocked = query.has('style') || portraitLabEnabled;
@@ -359,7 +675,7 @@
     const style = e.target.dataset && e.target.dataset.style;
     if (!style) return;
     portraitStyle = style; portraitStyleLocked = true; window.__portraitStyle = style; syncStyleLab();
-    if (segMask && snapshot && effect) buildLayers(effect === 'freeze' ? '#ffe34f' : '#52677f');
+    if (segMask && snapshot && effect) buildLayers((REACTION_TIERS[currentReactionTier] || REACTION_TIERS.super).glow);
   };
   syncStyleLab();
   window.__portraitStyle = portraitStyle;
@@ -374,7 +690,8 @@
   }
 
   function selectPortraitMode() {
-    if (!portraitStyleLocked) portraitStyle = roundPortraitModes[qIndex] || 'manga';
+    const roundIndex = openMode ? openIndex : qIndex;
+    if (!portraitStyleLocked) portraitStyle = roundPortraitModes[roundIndex] || 'manga';
     window.__portraitStyle = portraitStyle;
     canvas.dataset.portraitStyle = portraitStyle;
     syncStyleLab();
@@ -396,7 +713,54 @@
   }
   function hideSegError() { segError.classList.remove('show'); }
 
+  // --- Диагностика камеры: единый источник для метрик ---
+  // Разводим по двум осям: ГДЕ упало (stage) и ПОЧЕМУ (reason).
+  // Раньше всё сливалось в one-word lastCameraError, и часть 'camera_enable_failed'
+  // вообще была про загрузку ML-модели, а не про камеру.
+  let lastCameraError = '';       // reason по месту: getUserMedia_reject:NotAllowedError / frame_timeout / model_load_fail ...
+  let lastCamStage = 'camera';    // 'camera' | 'model' | 'never' — где именно провал
+  function detectPlatform() {
+    const ua = navigator.userAgent || '';
+    const md = navigator.userAgentData && navigator.userAgentData.mobile;
+    if (/iPad|iPhone|iPod/.test(ua) || (md && /Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
+    if (/Android/.test(ua)) return 'android';
+    if (md) return 'mobile';
+    return 'desktop';
+  }
+  // 'granted'|'denied'|'prompt'|'unsupported' — что браузер уже знает о разрешении на камеру.
+  // На iOS Safari всегда 'unsupported', на desktop Chrome/Edge даёт настоящее состояние.
+  async function getCamPermission() {
+    try {
+      if (!navigator.permissions || !navigator.permissions.query) return 'unsupported';
+      const s = await navigator.permissions.query({ name: 'camera' });
+      return s.state; // granted | denied | prompt
+    } catch (e) { return 'unsupported'; }
+  }
+  // Общая точка: один объект с контекстом для каждой попытки включения камеры.
+  function camDiagContext(reasonOverride) {
+    return {
+      stage: lastCamStage,
+      reason: reasonOverride || lastCameraError || 'model',
+      platform: detectPlatform(),
+      secure: location.protocol === 'https:',
+      permission: window.__camPermission || 'unknown',
+      inIframe: (() => { try { return window.self !== window.top; } catch (e) { return true; } })(),
+    };
+  }
   let stream = null;
+  let syntheticCharacterImage = null;
+  let currentCharacterIndex = 0;
+  // Пре-запрос разрешения БЕЗ запроса юзеру (permissions.query безопасен, жеста не требует).
+  // Отдаёт точное состояние на desktop Chrome/Edge до первого клика; на iOS всегда 'unsupported'.
+  if (window.__camPermission === undefined) getCamPermission().then(s => { window.__camPermission = s; }).catch(() => {});
+  let roundCharacterOrder = [];
+  const syntheticCharacterPromises = new Map();
+  const CHARACTER_SETS = [
+    { id:'original', neutral:'assets/characters/player-puzzled.png', cringe:'assets/characters/player-cringe.png', joy:'assets/characters/player-joy.png' },
+    { id:'copper', neutral:'assets/characters/copper-neutral.jpg', cringe:'assets/characters/copper-cringe.jpg', joy:'assets/characters/copper-joy.jpg' },
+    { id:'turkish', neutral:'assets/characters/blue-neutral.jpg', cringe:'assets/characters/blue-cringe.jpg', joy:'assets/characters/blue-joy.jpg' },
+    { id:'purple', neutral:'assets/characters/purple-neutral.jpg', cringe:'assets/characters/purple-cringe.jpg', joy:'assets/characters/purple-joy.jpg' }
+  ];
   let score = 0;
   let qIndex = 0;
   let locked = false;
@@ -406,9 +770,30 @@
   let sparkles = [];
   let rays = null;      // лучи за головой (японский стиль)
   let popTexts = [];    // слэм-тексты («СУПЕР!», «ОГО!»)
+  let answerCaption = ''; // реплика игрока в speech bubble на стоп-кадре
   let flash = null;     // вспышка экрана
   let roundShots = [];   // лента стоп-кадров раунда
+  let selectedShot = null; // выбранный в ленте стоп-кадр (для шаринга)
   let effect = null; // 'rain' (failure family) | 'freeze'
+  let currentReactionTier = 'normal';
+  const REACTION_TIERS = {
+    bad: { label:'ПЛОХО', tone:'bad', beep:180, glow:'#52677f' },
+    normal: {
+      label:'НОРМАЛЬНО', tone:'normal', beep:520, glow:'#19d9ff',
+      particleCount:18, posterParticleCount:8, sparkleCount:24, rayCount:18, flashAlpha:.42,
+      shouts:['НОРМАЛЬНО', 'ОКЕЙ', 'НЕПЛОХО'], tag:null, mainColor:'#fff8df', tagColor:'#19d9ff'
+    },
+    super: {
+      label:'СУПЕР', tone:'super', beep:880, glow:'#ffe34f',
+      particleCount:68, posterParticleCount:14, sparkleCount:42, rayCount:28, flashAlpha:.72,
+      shouts:['СУПЕР!', 'БАМ!', 'ОГО!', 'ドン!'], tag:'NICE! // 正解', mainColor:'#ffe34f', tagColor:'#19d9ff'
+    },
+    mega: {
+      label:'МЕГА', tone:'mega', beep:1120, glow:'#ff3fb4',
+      particleCount:92, posterParticleCount:18, sparkleCount:58, rayCount:34, flashAlpha:.82,
+      shouts:['МЕГА!', 'ВАУ!', '10/10!', '伝説!'], tag:'LEGEND // 最高', mainColor:'#ff3fb4', tagColor:'#ffe34f'
+    }
+  };
   const FAILURE_MODES = ['fracture', 'ink', 'shock', 'rain'];
   let failureMode = 'fracture';
   let failureBag = [];
@@ -423,7 +808,86 @@
   let lastFxTime = 0;
   let layerRevealAt = 0;
   let currentBgKind = null;
+  let maskRunId = 0;
   const renderDpr = Math.min(window.devicePixelRatio || 1, 2);
+  const MENU_MUSIC_VOLUME = 0.18;
+  let menuMusicFade = null;
+
+  // Ручное управление музыкой (кнопки 🔊/🔇: одна на входном экране внизу,
+  // другие в шапке раундов). Вкл по умолчанию;
+  // флаг userMuted поднимается только нажатием кнопки и подавляет авто-старт.
+  let musicUserMuted = false;
+  const musicToggles = Array.from(document.querySelectorAll('.music-toggle'));
+
+  function musicActuallyPlaying() {
+    return !startMusic.paused && !startMusic.ended && startMusic.readyState > 2
+      && !startMusic.muted;
+  }
+
+  function updateMusicBtn() {
+    musicToggles.forEach((b) => {
+      const on = musicUserMuted ? false : musicActuallyPlaying();
+      b.textContent = on ? '🔇 Музыка' : '🔊 Музыка';
+      b.setAttribute('aria-label', on ? 'Выключить музыку' : 'Включить музыку');
+    });
+  }
+
+  function playMenuMusic() {
+    if (musicUserMuted) { updateMusicBtn(); return; }
+    if (startScreen.classList.contains('hidden') && endScreen.classList.contains('hidden')) return;
+    if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
+    startMusic.volume = MENU_MUSIC_VOLUME;
+    startMusic.play().then(updateMusicBtn).catch(() => updateMusicBtn());
+  }
+
+  function stopMenuMusic() {
+    // Надёжный стоп: снимаем фейд и тушим/паузим ВСЕГДА. Ранний выход по
+    // startMusic.paused опасен гонкой на iOS (play() ещё не зарезолвился,
+    // а paused=true → музыка «дозвенела» уже в раунде).
+    if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
+    const wasPlaying = musicActuallyPlaying();
+    if (!wasPlaying) { startMusic.pause(); updateMusicBtn(); return; }
+    const step = Math.max(startMusic.volume / 6, 0.01);
+    menuMusicFade = setInterval(() => {
+      startMusic.volume = Math.max(0, startMusic.volume - step);
+      if (startMusic.volume > 0) { updateMusicBtn(); return; }
+      clearInterval(menuMusicFade);
+      menuMusicFade = null;
+      startMusic.pause();
+      startMusic.currentTime = 0;
+      startMusic.volume = MENU_MUSIC_VOLUME;
+      updateMusicBtn();
+    }, 40);
+  }
+
+  function toggleMusic() {
+    if (musicUserMuted || !musicActuallyPlaying()) {
+      // Включаем (снимаем мьют и запускаем) — по клику это разрешённый жест.
+      musicUserMuted = false;
+      if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; startMusic.volume = MENU_MUSIC_VOLUME; }
+      startMusic.currentTime = 0;
+      startMusic.play().then(updateMusicBtn).catch(() => updateMusicBtn());
+    } else {
+      // Выключаем насовсем: юзер явно заткнул музыку — до конца раунда/до клика.
+      musicUserMuted = true;
+      if (menuMusicFade) { clearInterval(menuMusicFade); menuMusicFade = null; }
+      startMusic.pause();
+      startMusic.currentTime = 0;
+      startMusic.volume = MENU_MUSIC_VOLUME;
+      updateMusicBtn();
+    }
+  }
+
+  musicToggles.forEach((b) => b.addEventListener('click', toggleMusic));
+
+  playMenuMusic();
+  document.addEventListener('pointerdown', function unlockMusic() {
+    if (!musicUserMuted) playMenuMusic();
+  }, { once:true });
+  document.addEventListener('keydown', function unlockMusic() {
+    if (!musicUserMuted) playMenuMusic();
+  }, { once:true });
+  setInterval(updateMusicBtn, 1000);
 
   // Рисуем как CSS object-fit: cover, без растягивания лица и тела.
   function drawCover(target, source, w, h, mirror = false) {
@@ -447,24 +911,114 @@
   resize();
 
   async function startCamera() {
+    lastCamStage = 'camera';
+    lastCameraError = '';
+    // iOS: при отказе getUserMedia может ДОЛГО не резолвиться — ни resolve, ни reject.
+    // Ловим через race, чтобы не зависать в 'Включаем камеру…' и получить причину.
+    let gUM;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
-      video.srcObject = stream;
-      camOffBtn.classList.remove('hidden');
-      return true;
+      gUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+      if (!gUM) throw new TypeError('getUserMedia unavailable');
+      stream = await Promise.race([
+        gUM.call(navigator.mediaDevices, {
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('getUserMedia timeout (>9s)')), 9000)),
+      ]);
     } catch (e) {
-      alert('Не удалось включить камеру: ' + e.message);
+      // user отклонил / нет прав / нет устройства / нет WebRTC / зависло
+      lastCameraError = 'getUserMedia_reject:' + (e && e.name ? e.name : String(e));
+      dbgLog('camera-unavailable', { err: String(e), ...camDiagContext() });
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.srcObject = null;
       return false;
     }
+    try {
+      video.srcObject = stream;
+      // Поток ещё не означает, что браузер начал отдавать кадры. Особенно заметно
+      // на iOS: без ожидания play/metadata интерфейс переходил к чёрному экрану.
+      await video.play();
+      if (!video.videoWidth || video.readyState < 2) {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => { cleanup(); reject(new Error('frame_timeout')); }, 4000);
+          const ready = () => { if (video.videoWidth && video.readyState >= 2) { cleanup(); resolve(); } };
+          const failed = () => { cleanup(); reject(new Error('video_error')); };
+          const cleanup = () => {
+            clearTimeout(timeout);
+            video.removeEventListener('loadeddata', ready);
+            video.removeEventListener('canplay', ready);
+            video.removeEventListener('error', failed);
+          };
+          video.addEventListener('loadeddata', ready);
+          video.addEventListener('canplay', ready);
+          video.addEventListener('error', failed);
+          ready();
+        });
+      }
+    } catch (e) {
+      lastCameraError = e && e.message ? String(e.message) : 'video_unknown';
+      dbgLog('camera-unavailable', { err: String(e), ...camDiagContext() });
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.srcObject = null;
+      return false;
+    }
+    syntheticCam.classList.add('hidden');
+    syncCamBtnState();
+    return true;
   }
 
   function stopCamera() {
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     video.srcObject = null;
-    camOffBtn.classList.add('hidden');
+    syntheticCam.classList.add('hidden');
+    syncCamBtnState();
+  }
+
+  // Кнопка камеры видна во время раунда: «🚫 Камера» — выключить (идёт видео),
+  // «📷 Камера» — включить прямо в раунде (режим без камеры / комикс-карточки).
+  function syncCamBtnState() {
+    const onStart = !startScreen.classList.contains('hidden');
+    const onEnd = !endScreen.classList.contains('hidden');
+    const inRound = !ui.classList.contains('hidden') || !openUi.classList.contains('hidden');
+    if (onStart || onEnd || !inRound) { camOffBtn.classList.add('hidden'); return; }
+    camOffBtn.classList.remove('hidden');
+    camOffBtn.classList.toggle('camera-cta', !stream);
+    camOffBtn.textContent = stream ? '🚫 Камера' : '📸 Включить камеру';
+  }
+
+  function prepareRoundCharacters() {
+    const shuffled = [...CHARACTER_SETS.keys()].sort(() => Math.random() - .5);
+    roundCharacterOrder = shuffled.slice();
+    while (roundCharacterOrder.length < OPEN_TOTAL) {
+      const refill = [...CHARACTER_SETS.keys()].sort(() => Math.random() - .5);
+      if (refill[0] === roundCharacterOrder.at(-1)) refill.push(refill.shift());
+      roundCharacterOrder.push(...refill);
+    }
+  }
+
+  async function prepareSyntheticReaction(reactionKey) {
+    if (stream) { syntheticCharacterImage = null; return; }
+    const set = CHARACTER_SETS[currentCharacterIndex] || CHARACTER_SETS[0];
+    if (!syntheticCharacterPromises.has(set.id)) {
+      syntheticCharacterPromises.set(set.id, Promise.all([
+        loadImage(set.neutral), loadImage(set.cringe), loadImage(set.joy)
+      ]).then(([neutral, cringe, joy]) => ({ neutral, cringe, joy })).catch(e => {
+        dbgLog('character-load-error', { err:String(e) });
+        return null;
+      }));
+    }
+    const characters = await syntheticCharacterPromises.get(set.id);
+    if (!characters) { syntheticCharacterImage = null; return; }
+    syntheticCharacterImage = reactionKey === 'bad'
+      ? characters.cringe
+      : reactionKey === 'normal' ? characters.neutral : characters.joy;
+    syntheticCam.src = syntheticCharacterImage.src;
+    syntheticCam.classList.remove('hidden');
+    window.__quizDebug.syntheticReaction = reactionKey;
+    window.__quizDebug.syntheticCharacter = set.id;
   }
 
   function beep(freq, dur, type = 'sine', vol = 0.15) {
@@ -492,6 +1046,13 @@
 
   async function runPoseCountdown(correct) {
     showPoseCue(correct ? 'ВЕРНО!' : 'МИМО!', correct ? 'good' : 'bad');
+    if (!stream) {
+      await wait(520);
+      if (correct) freezeFrame(true); else startRain();
+      await wait(260);
+      hidePoseCue();
+      return;
+    }
     await wait(480);
     showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
     await wait(620);
@@ -513,26 +1074,53 @@
     if (video.videoWidth > 0 && video.videoHeight > 0) {
       // зеркалим и кадрируем точно так же, как video с object-fit: cover
       drawCover(c, video, w, h, true);
+    } else if (syntheticCharacterImage) {
+      drawCover(c, syntheticCharacterImage, w, h, false);
     } else {
-      c.fillStyle = '#1a1a2e';
-      c.fillRect(0, 0, w, h);
+      drawCameraFreeCard(c, w, h);
     }
     return s;
   }
 
+  function drawCameraFreeCard(c, w, h) {
+    c.fillStyle = '#fff8df'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#19d9ff'; c.fillRect(0, 0, w, h * .17);
+    c.fillStyle = '#ffe34f';
+    c.beginPath(); c.moveTo(0, h * .72); c.lineTo(w, h * .55); c.lineTo(w, h); c.lineTo(0, h); c.closePath(); c.fill();
+    c.save(); c.globalAlpha = .2; c.fillStyle = '#090611';
+    for (let y = 12; y < h; y += 18) for (let x = 10 + (y % 36 ? 9 : 0); x < w; x += 18) {
+      c.beginPath(); c.arc(x, y, 2.2, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+    c.strokeStyle = '#090611'; c.lineWidth = 8; c.strokeRect(12, 12, w - 24, h - 24);
+    c.fillStyle = '#090611'; c.textAlign = 'center'; c.textBaseline = 'top';
+    c.font = `900 ${Math.min(25, w * .064)}px sans-serif`;
+    c.fillText('БАТТЛ БЕЗ КАМЕРЫ', w / 2, h * .25);
+    c.font = `800 ${Math.min(17, w * .043)}px sans-serif`;
+    c.fillText('ТВОЯ РЕПЛИКА — ГЛАВНЫЙ КАДР', w / 2, h * .38);
+    c.fillStyle = '#ff3b4f'; c.fillRect(w * .1, h * .48, w * .8, 5);
+  }
+
   function setStartModelState(state) {
     startBtn.classList.toggle('model-error', state === 'error');
+    openBtn.classList.toggle('model-error', state === 'error');
     if (state === 'loading') {
       startBtn.disabled = true;
       startBtn.textContent = '◌ Загружаем модель…';
+      openBtn.disabled = true;
+      openBtn.textContent = '◌ Загружаем эффекты…';
       modelHint.textContent = 'Подготавливаем визуальные эффекты';
     } else if (state === 'ready') {
       startBtn.disabled = false;
       startBtn.textContent = '▶ Играть';
+      openBtn.disabled = false;
+      openBtn.textContent = landingVariant === 'duel' ? '▶ Принять вызов' : landingVariant === 'result' ? '▶ Узнать свой рейтинг' : '▶ Начать баттл';
       modelHint.textContent = 'MODEL READY // эффекты готовы';
     } else {
       startBtn.disabled = false;
       startBtn.textContent = '↻ Повторить загрузку';
+      openBtn.disabled = false;
+      openBtn.textContent = '↻ Повторить загрузку';
       modelHint.textContent = 'Модель не загрузилась — без неё игра не начнётся';
     }
   }
@@ -545,11 +1133,15 @@
       try {
       window.__quizDebug.segState = 'loading';
       setAiStatus('AI: загрузка модели…');
+      // Пути до MediaPipe-ресурсов строим от текущего каталога страницы:
+      // квиз живёт и в корне (cringe.roborumba.com), и под /quiz/ (rumbik), и под /beta/.
+      const pageDir = location.pathname.split('/').slice(0, -1).join('/'); // '/quiz' | '' | '/beta'
+      const tasksBase = (pageDir || '') + '/vendor/tasks/';
       // Версия в URL не даёт браузеру переиспользовать старый MIME/модуль после деплоя.
-      const src = await import('/quiz/vendor/tasks/vision_bundle.mjs?v=visual-2');
-      const vision = await src.FilesetResolver.forVisionTasks('/quiz/vendor/tasks/wasm/');
+      const src = await import(`${tasksBase}vision_bundle.mjs?v=visual-2`);
+      const vision = await src.FilesetResolver.forVisionTasks(`${tasksBase}wasm/`);
       segmenter = await src.ImageSegmenter.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: '/quiz/vendor/tasks/selfie_segmenter.tflite' },
+        baseOptions: { modelAssetPath: `${tasksBase}selfie_segmenter.tflite` },
         runningMode: 'IMAGE',
         outputCategoryMask: true
       });
@@ -574,7 +1166,8 @@
   // без фолбэка: ждём до 20с, иначе { mask: null, error }
   function makeMask() {
     return new Promise(resolve => {
-      if (!video.videoWidth) return resolve(null);
+      const useSynthetic = !stream && syntheticCharacterImage && snapshot;
+      if (!video.videoWidth && !useSynthetic) return resolve(null);
       const t0 = Date.now();
       let done = false;
       let deadline = null;
@@ -598,7 +1191,7 @@
         const scale = Math.min(1, 640 / Math.max(vw, vh));
         c.width = Math.max(1, Math.round(vw * scale));
         c.height = Math.max(1, Math.round(vh * scale));
-        drawCover(c.getContext('2d'), video, c.width, c.height, false);
+        drawCover(c.getContext('2d'), useSynthetic ? snapshot : video, c.width, c.height, false);
         let p = null;
         try { p = segmenter.segment(c); } catch (e) {
           window.__quizDebug.segError = String(e);
@@ -655,8 +1248,7 @@
     if (!res) return;
     if (res.mask && (effect === 'freeze' || effect === 'rain')) {
       segMask = res.mask;
-      // победа — золотой контур, поражение — холодный приглушённый
-      buildLayers(effect === 'freeze' ? '#ffe34f' : '#52677f');
+      buildLayers((REACTION_TIERS[currentReactionTier] || REACTION_TIERS.super).glow);
       hideSegError();
     } else if (res.error) {
       showSegError(res.error);
@@ -896,18 +1488,27 @@
     const box = segMask.__subject;
     subjectAnchor = box ? {
       // Маска ниже зеркалится, поэтому X тоже отражаем.
-      x: w * (1 - ((box.minX + box.maxX) / 2) / segMask.width),
+      x: w * (stream ? 1 - ((box.minX + box.maxX) / 2) / segMask.width : ((box.minX + box.maxX) / 2) / segMask.width),
       y: h * Math.max(0.2, box.minY / segMask.height + 0.12),
       width: w * (box.maxX - box.minX) / segMask.width
     } : { x: w / 2, y: h * 0.34, width: w * 0.55 };
     const textSide = subjectAnchor.x < w * .48 ? 1 : -1;
+    const placePopText = (pt, desiredX) => {
+      ctx.save();
+      ctx.font = `900 ${pt.size}px sans-serif`;
+      const textWidth = ctx.measureText(pt.text).width;
+      ctx.restore();
+      const bubbleWidth = textWidth + pt.size * 1.05;
+      const halfWidth = (pt.shape === 'tag' ? .56 : .7) * bubbleWidth + 14;
+      pt.x = Math.max(halfWidth, Math.min(w - halfWidth, desiredX));
+    };
     if (popTexts[0]) {
-      popTexts[0].x = Math.max(w * .24, Math.min(w * .76, subjectAnchor.x + textSide * Math.max(92, subjectAnchor.width * .48)));
-      popTexts[0].y = Math.max(82, subjectAnchor.y - 92);
+      placePopText(popTexts[0], subjectAnchor.x + textSide * Math.max(92, subjectAnchor.width * .48));
+      popTexts[0].y = Math.max(112, subjectAnchor.y - 112);
     }
     if (popTexts[1]) {
-      popTexts[1].x = textSide > 0 ? w * .72 : w * .28;
-      popTexts[1].y = Math.min(h * .48, subjectAnchor.y + 92);
+      placePopText(popTexts[1], textSide > 0 ? w * .74 : w * .26);
+      popTexts[1].y = Math.min(h * .58, subjectAnchor.y + Math.max(132, subjectAnchor.width * .58));
     }
     // Если маска пришла после старта анимации, переносим уже летящие искры к голове.
     const shiftX = subjectAnchor.x - previousAnchor.x, shiftY = subjectAnchor.y - previousAnchor.y;
@@ -926,7 +1527,8 @@
     const mirroredMask = document.createElement('canvas');
     mirroredMask.width = w; mirroredMask.height = h;
     const mm = mirroredMask.getContext('2d');
-    mm.translate(w, 0); mm.scale(-1, 1); mm.drawImage(segMask, 0, 0, w, h);
+    if (stream) { mm.translate(w, 0); mm.scale(-1, 1); }
+    mm.drawImage(segMask, 0, 0, w, h);
 
     // Чёткие расширенные кольца вместо одного мутного shadowBlur.
     glowLayer = document.createElement('canvas');
@@ -964,25 +1566,32 @@
     window.__quizDebug.segApplied = true;
   }
 
-  function freezeFrame(good) {
+  function freezeFrame(celebration = 'super') {
+    const reactionTier = celebration === true ? 'super' : celebration === false ? 'normal' : celebration;
+    const reaction = REACTION_TIERS[reactionTier] || REACTION_TIERS.super;
     stopFx();
+    answerCaption = openMode && lastOpenResult ? lastOpenResult.answer : '';
     effect = 'freeze';
+    currentReactionTier = reactionTier;
     selectPortraitMode();
     const w = window.innerWidth, h = window.innerHeight;
     snapshot = captureSnapshot();
     video.style.visibility = 'hidden'; // живое видео прячем — остаётся стоп-кадр
-    dbgLog('freezeFrame', { good, videoW: video.videoWidth, snapW: snapshot.width });
+    dbgLog('freezeFrame', { reactionTier, videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
-    layerRevealAt = 0;
+    layerRevealAt = stream ? 0 : performance.now();
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
-    makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
+    const thisMaskRun = maskRunId;
+    makeMask().then(res => {
+      if (thisMaskRun === maskRunId) applyMaskResult(res);
+    }).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     // Комиксный impact burst при победе: звёзды, точки, молнии и штрихи.
     impactParticles = [];
-    if (good) {
+    if (reaction.particleCount) {
       const palette = ['#ffe34f', '#ff3b4f', '#19d9ff', '#ff3fb4', '#fff8df'];
       const kinds = ['star', 'dot', 'bolt', 'slash'];
-      for (let i = 0; i < 68; i++) {
+      for (let i = 0; i < reaction.particleCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 2.8 + Math.random() * 6.2;
         impactParticles.push({
@@ -1003,11 +1612,11 @@
       }
     }
     // японские шоу-эффекты
-    flash = { a: 0.72, color: '255,255,255', decay: 0.64 };
-    rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: 28 };
+    flash = { a: reaction.flashAlpha, color: '255,255,255', decay: 0.64 };
+    rays = { rot: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.02, count: reaction.rayCount };
     sparkles = [];
     const hx = subjectAnchor.x, hy = subjectAnchor.y;
-    for (let i = 0; i < 42; i++) {
+    for (let i = 0; i < reaction.sparkleCount; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1.5 + Math.random() * 4;
       sparkles.push({
@@ -1019,19 +1628,22 @@
         t0: performance.now()
       });
     }
-    const shouts = ['ВЕРНО!', 'БАМ!', 'ОГО!', 'ドン!'];
-    const pick = () => shouts[Math.floor(Math.random() * shouts.length)];
+    const pick = () => reaction.shouts[Math.floor(Math.random() * reaction.shouts.length)];
     const now0 = performance.now();
-    popTexts = [
-      { shape: 'burst', text: pick(), x: w * .5, y: h * .16, size: Math.min(46, w * .115), color: '#ffe34f', t0: now0 + 120, life: 1700 },
-      { shape: 'tag', text: 'NICE! // 正解', x: w * .22, y: h * .32, size: Math.min(16, w * .041), color: '#19d9ff', t0: now0 + 430, life: 1600 }
-    ];
+    const mainSize = reactionTier === 'normal' ? Math.min(34, w * .086) : reactionTier === 'mega' ? Math.min(43, w * .108) : Math.min(46, w * .115);
+    const tagSize = reactionTier === 'normal' ? Math.min(13, w * .034) : Math.min(16, w * .041);
+    popTexts = [{ shape: 'burst', text: pick(), x: w * .5, y: h * .16, size: mainSize, color: reaction.mainColor, t0: now0 + 120, life: 1700 }];
+    if (reaction.tag) {
+      popTexts.push({ shape: 'tag', text: reaction.tag, x: w * .22, y: h * .32, size: tagSize, color: reaction.tagColor, t0: now0 + 430, life: 1600 });
+    }
     animateFx(w, h);
   }
 
   function startRain() {
     stopFx();
+    answerCaption = openMode && lastOpenResult ? lastOpenResult.answer : '';
     effect = 'rain';
+    currentReactionTier = 'bad';
     if (!failureBag.length) failureBag = shuffle([...FAILURE_MODES]);
     failureMode = failureBag.pop();
     window.__quizDebug.failureMode = failureMode;
@@ -1041,10 +1653,13 @@
     video.style.visibility = 'hidden';
     dbgLog('startFailure', { mode: failureMode, videoW: video.videoWidth, snapW: snapshot.width });
     segMask = null; personLayer = null; bgLayer = null; glowLayer = null;
-    layerRevealAt = 0;
+    layerRevealAt = stream ? 0 : performance.now();
     currentBgKind = null;
     subjectAnchor = { x: w / 2, y: h * 0.34, width: w * 0.55 };
-    makeMask().then(applyMaskResult).catch(e => dbgLog('mask-then-error', { err: String(e) }));
+    const thisMaskRun = maskRunId;
+    makeMask().then(res => {
+      if (thisMaskRun === maskRunId) applyMaskResult(res);
+    }).catch(e => dbgLog('mask-then-error', { err: String(e) }));
     rain = [];
     const rainCount = failureMode === 'rain' ? 150 : (failureMode === 'shock' ? 34 : 0);
     for (let i = 0; i < rainCount; i++) {
@@ -1081,9 +1696,11 @@
   }
 
   function stopFx() {
+    maskRunId++;
     effect = null;
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     rain = []; impactParticles = []; sparkles = []; popTexts = [];
+    answerCaption = '';
     rays = null; flash = null;
     lastFxTime = 0;
     layerRevealAt = 0;
@@ -1201,8 +1818,39 @@
     ctx.restore();
   }
 
+  function drawAnswerCaption(ctx, w, h) {
+    if (!answerCaption) return;
+    const raw = answerCaption.length > 120 ? `${answerCaption.slice(0, 117).trim()}…` : answerCaption;
+    const fontSize = Math.min(18, Math.max(14, w * .043));
+    ctx.save();
+    ctx.font = `900 ${fontSize}px sans-serif`;
+    const lines = wrapText(ctx, `«${raw}»`, w - 76).slice(0, 3);
+    if (!lines.length) { ctx.restore(); return; }
+    if (wrapText(ctx, `«${raw}»`, w - 76).length > 3) lines[2] = `${lines[2].replace(/[.…]+$/, '')}…`;
+    const textWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
+    const boxWidth = Math.min(w - 42, textWidth + 34);
+    const lineHeight = fontSize * 1.25;
+    const boxHeight = lines.length * lineHeight + 26;
+    const x = w / 2, y = Math.min(h - boxHeight / 2 - 205, h * .67);
+    ctx.translate(x, y); ctx.rotate(-.018);
+    ctx.fillStyle = '#ff3b4f';
+    ctx.fillRect(-boxWidth / 2 + 7, -boxHeight / 2 + 8, boxWidth, boxHeight);
+    ctx.fillStyle = '#fff8df'; ctx.strokeStyle = '#090611'; ctx.lineWidth = 5; ctx.lineJoin = 'miter';
+    ctx.beginPath();
+    ctx.rect(-boxWidth / 2, -boxHeight / 2, boxWidth, boxHeight);
+    ctx.moveTo(-boxWidth * .22, boxHeight / 2);
+    ctx.lineTo(-boxWidth * .34, boxHeight / 2 + 18);
+    ctx.lineTo(-boxWidth * .05, boxHeight / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#090611'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach((line, i) => ctx.fillText(line, 0, (i - (lines.length - 1) / 2) * lineHeight));
+    ctx.restore();
+  }
+
   function drawShowChrome(ctx, w, h, mode, now) {
-    const accent = mode === 'freeze' ? '#ffe45e' : '#7ab8ff';
+    const accent = mode === 'freeze'
+      ? (REACTION_TIERS[currentReactionTier] || REACTION_TIERS.super).glow
+      : '#7ab8ff';
     const pulse = 0.72 + Math.sin(now / 240) * 0.12;
     ctx.save();
     ctx.strokeStyle = accent; ctx.globalAlpha = pulse; ctx.lineWidth = 3;
@@ -1423,6 +2071,7 @@
         drawPopText(ctx, pt, now > pt.t0 + pt.life ? holdTime : now);
       }
     }
+    drawAnswerCaption(ctx, w, h);
     drawShowChrome(ctx, w, h, effect, performance.now());
     // вспышка экрана (поверх всего)
     if (flash) {
@@ -1514,8 +2163,12 @@
       ? `Правильных ответов: ${score} из ${QUESTIONS.length}. Забирай свой стоп-кадр!`
       : `Правильных ответов: ${score} из ${QUESTIONS.length}. Ещё раунд — перепишем финальную панель.`;
     renderRoundStrip();
+    endScreen.classList.remove('cameraUpsell');
+    cameraReplayBtn.classList.add('hidden');
     endScreen.classList.remove('hidden');
+    syncCamBtnState();
     if (win) freezeFrame(true); else startRain();
+    playMenuMusic();
   }
 
   // Забираем именно тот шоу-кадр, который видит пользователь: вместе с лучами,
@@ -1536,11 +2189,14 @@
     target.drawImage(bgLayer, 0, 0, w, h);
     const anchor = subjectAnchor || { x: w / 2, y: h * .34, width: w * .55 };
     if (effect === 'freeze') {
+      const reaction = REACTION_TIERS[currentReactionTier] || REACTION_TIERS.super;
+      const rayCount = reaction.rayCount || 24;
       target.save(); target.translate(anchor.x, anchor.y);
       const R = Math.max(w, h) * .78, r0 = Math.max(72, Math.min(130, anchor.width * .27));
-      for (let i = 0; i < 24; i++) {
-        const a = i / 24 * Math.PI * 2 + (rays ? rays.rot : 0), aw = i % 2 ? .07 : .11;
-        target.fillStyle = i % 3 ? 'rgba(255,227,79,.34)' : 'rgba(255,255,255,.2)';
+      target.globalAlpha = currentReactionTier === 'normal' ? .18 : currentReactionTier === 'mega' ? .38 : .3;
+      for (let i = 0; i < rayCount; i++) {
+        const a = i / rayCount * Math.PI * 2 + (rays ? rays.rot : 0), aw = i % 2 ? .07 : .11;
+        target.fillStyle = i % 3 ? reaction.glow : '#fff8df';
         target.beginPath(); target.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
         target.arc(0, 0, R, a, a + aw); target.lineTo(Math.cos(a + aw) * r0, Math.sin(a + aw) * r0); target.fill();
       }
@@ -1549,7 +2205,8 @@
     target.drawImage(personLayer, 0, 0, w, h);
     target.drawImage(glowLayer, 0, 0, w, h);
     if (effect === 'freeze') {
-      for (const c of impactParticles.slice(0, 28)) {
+      const reaction = REACTION_TIERS[currentReactionTier] || REACTION_TIERS.super;
+      for (const c of impactParticles.slice(0, reaction.posterParticleCount)) {
         const d = c.posterDistance;
         const x = anchor.x + Math.cos(c.angle) * d;
         const y = anchor.y + Math.sin(c.angle) * d * .78;
@@ -1559,6 +2216,7 @@
       drawFailureScene(target, w, h, 0, 900);
     }
     for (const pt of popTexts) drawPopText(target, pt, pt.t0 + pt.life * .42);
+    drawAnswerCaption(target, w, h);
     drawShowChrome(target, w, h, effect, 0);
   }
 
@@ -1574,12 +2232,20 @@
 
   function renderRoundStrip() {
     const strip = document.getElementById('roundStrip');
+    const hero = document.getElementById('roundHero');
     strip.innerHTML = '';
+    const selectShot = (src, thumb) => {
+      hero.src = src;
+      selectedShot = src;
+      hero.classList.remove('hidden');
+      strip.querySelectorAll('img').forEach(img => img.classList.toggle('active', img === thumb));
+    };
     roundShots.forEach((src, idx) => {
       const img = document.createElement('img');
       img.src = src;
       img.alt = `Стоп-кадр ${idx + 1}`;
-      img.onclick = () => {
+      img.onclick = () => { metrikaGoal('photo_select'); selectShot(src, img); };
+      img.ondblclick = () => {
         const a = document.createElement('a');
         a.href = src;
         a.download = `selfie-quiz-${idx + 1}.jpg`;
@@ -1589,11 +2255,24 @@
       };
       strip.appendChild(img);
     });
-    strip.classList.remove('hidden');
+    if (roundShots.length) {
+      strip.classList.remove('hidden');
+      selectShot(roundShots[roundShots.length - 1], strip.lastElementChild);
+      hero.onclick = () => {
+        const a = document.createElement('a');
+        a.href = hero.src;
+        a.download = 'selfie-quiz-selected.jpg';
+        document.body.appendChild(a); a.click(); a.remove();
+      };
+    } else {
+      hero.classList.add('hidden');
+      strip.classList.add('hidden');
+    }
   }
 
   function startGame() {
     score = 0; qIndex = 0;
+    document.getElementById('openUi').classList.add('hidden');
     QUESTIONS = shuffle([...QUESTION_BANK]).slice(0, 6);
     if (!portraitStyleLocked) preparePortraitModes();
     roundShots = [];
@@ -1601,27 +2280,556 @@
     stopFx();
     endScreen.classList.add('hidden');
     ui.classList.remove('hidden');
+    syncCamBtnState();
     renderQuestion();
   }
 
-  // ---------- Старт ----------
-  startBtn.onclick = async () => {
-    if (!segmenter) {
-      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) return;
+  let openMode = false;
+  let openIndex = 0, openSum = 0;
+  let roundSituations = [];
+  let lastOpenResult = null;
+  const OPEN_TOTAL = 5;
+  let rec = null, recFinal = '', recLastText = '';
+  let recTimer = null, recSecondsLeft = 10;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  async function startOpenGame() {
+    openMode = true;
+    openIndex = 0; openSum = 0;
+    const localApi = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+    const situationsUrl = localApi ? 'http://127.0.0.1:8003/situations' : '/quiz/api/situations';
+    try {
+      const response = await fetch(situationsUrl, { headers: { 'Accept': 'application/json' } });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      roundSituations = Array.isArray(payload.situations) ? payload.situations : [];
+      if (roundSituations.length < OPEN_TOTAL) throw new Error('not enough situations');
+    } catch (e) {
+      dbgLog('situations-error', { err: String(e) });
+      alert('Не удалось загрузить ситуации. Попробуй ещё раз чуть позже.');
+      return false;
     }
-    startBtn.disabled = true;
-    startBtn.textContent = '◌ Включаем камеру…';
-    const ok = await startCamera();
-    if (!ok) {
-      setStartModelState('ready');
-      modelHint.textContent = 'Нужен доступ к камере для selfie-эффектов';
+    lastOpenResult = null;
+    metrikaGoal('round_start');
+    metrikaGoal(stream ? 'game_start_camera' : 'game_start_camera_free');
+    prepareRoundCharacters();
+    roundShots = [];
+    document.getElementById('roundStrip').classList.add('hidden');
+    stopFx();
+    endScreen.classList.remove('cameraUpsell');
+    cameraReplayBtn.classList.add('hidden');
+    endScreen.classList.add('hidden');
+    ui.classList.add('hidden');
+    document.getElementById('openUi').classList.remove('hidden');
+    if (!portraitStyleLocked) preparePortraitModes();
+    nextSituation();
+    return true;
+  }
+
+  function nextSituation() {
+    currentCharacterIndex = roundCharacterOrder[openIndex] ?? 0;
+    syncCamBtnState();
+    clearRecTimer();
+    stopFx();
+    if (!stream) prepareSyntheticReaction('normal');
+    locked = false;
+    const s = roundSituations[openIndex];
+    document.getElementById('openNum').textContent = `Ситуация ${openIndex + 1} из ${OPEN_TOTAL}`;
+    document.getElementById('situationText').textContent = s.d;
+    document.getElementById('situationText').classList.remove('hidden');
+    document.getElementById('openProgress').style.width = (openIndex / OPEN_TOTAL * 100) + '%';
+    document.getElementById('openScore').innerHTML = `Рейтинг: <b>${openSum}</b>`;
+    recFinal = '';
+    recLastText = '';
+    const at = document.getElementById('answerText'); at.classList.add('hidden'); at.textContent = '';
+    const ai = document.getElementById('answerInput'); ai.classList.add('hidden'); ai.value = '';
+    document.getElementById('recStatus').classList.remove('show', 'recording');
+    document.getElementById('recBtn').classList.remove('hidden');
+    document.getElementById('stopRecBtn').classList.add('hidden');
+    document.getElementById('typeBtn').classList.remove('hidden');
+    document.getElementById('reRecBtn').classList.add('hidden');
+    document.getElementById('confirmBtn').classList.add('hidden');
+    document.getElementById('openNextBtn').classList.add('hidden');
+    document.getElementById('openAnswerBox').classList.remove('hidden');
+    document.getElementById('scoreBlock').classList.add('hidden');
+    document.getElementById('verdictText').classList.add('hidden');
+    document.getElementById('verdictToggle').classList.remove('hidden');
+    document.getElementById('confirmBtn').disabled = false;
+  }
+
+  function clearRecTimer() {
+    if (recTimer) { clearInterval(recTimer); recTimer = null; }
+  }
+
+  function stopRec() {
+    clearRecTimer();
+    if (rec) { try { rec.stop(); } catch (e) {} }
+  }
+
+  function enableManualAnswer() {
+    stopRec();
+    const ai = document.getElementById('answerInput');
+    ai.classList.remove('hidden');
+    document.getElementById('recBtn').classList.add('hidden');
+    document.getElementById('stopRecBtn').classList.add('hidden');
+    document.getElementById('typeBtn').classList.add('hidden');
+    document.getElementById('reRecBtn').classList.toggle('hidden', !recFinal.trim());
+    document.getElementById('confirmBtn').classList.toggle('hidden', !ai.value.trim() && !recFinal.trim());
+    ai.focus();
+  }
+
+  function startRec() {
+    if (!SR) {
+      enableManualAnswer();
       return;
     }
+    if (rec) { try { rec.abort(); } catch (e) {} }
+    rec = new SR();
+    rec.lang = 'ru-RU';
+    rec.interimResults = true;
+    rec.continuous = false;
+    const status = document.getElementById('recStatus');
+    const beginRecordingUi = () => {
+      if (recTimer) return;
+      recSecondsLeft = 10;
+      status.textContent = `🎙 Слушаю… ${recSecondsLeft}`;
+      status.classList.add('show', 'recording');
+      document.getElementById('recBtn').classList.add('hidden');
+      document.getElementById('stopRecBtn').classList.remove('hidden');
+      clearRecTimer();
+      recTimer = setInterval(() => {
+        recSecondsLeft--;
+        status.textContent = `🎙 Слушаю… ${Math.max(0, recSecondsLeft)}`;
+        if (recSecondsLeft <= 0) stopRec();
+      }, 1000);
+    };
+    rec.onstart = beginRecordingUi;
+    rec.onresult = (e) => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t; else interim += t;
+      }
+      if (final) { recFinal += final; try { rec.stop(); } catch (err) {} }
+      const at = document.getElementById('answerText');
+      const spoken = (recFinal + ' ' + interim).trim();
+      recLastText = spoken;
+      at.textContent = spoken;
+      at.classList.remove('hidden');
+    };
+    rec.onend = () => {
+      clearRecTimer();
+      status.classList.remove('show', 'recording');
+      document.getElementById('stopRecBtn').classList.add('hidden');
+      // Если запись остановили до финального результата распознавания, берём
+      // последний услышанный текст — иначе кнопка «Подтвердить» не появляется.
+      if (!recFinal.trim() && recLastText.trim()) recFinal = recLastText;
+      if (recFinal.trim()) {
+        document.getElementById('recBtn').classList.add('hidden');
+        document.getElementById('reRecBtn').classList.remove('hidden');
+        document.getElementById('confirmBtn').classList.remove('hidden');
+        document.getElementById('answerText').textContent = recFinal;
+        document.getElementById('answerText').classList.remove('hidden');
+      } else if (document.getElementById('answerInput').classList.contains('hidden')) {
+        document.getElementById('recBtn').classList.remove('hidden');
+      }
+    };
+    rec.onerror = (e) => {
+      status.classList.remove('show', 'recording');
+      dbgLog('rec-error', { err: e.error });
+      enableManualAnswer();
+    };
+    try { rec.start(); beginRecordingUi(); } catch (e) {
+      dbgLog('rec-start-error', { err: String(e) });
+      enableManualAnswer();
+    }
+  }
+
+  async function submitOpenAnswer() {
+    const ai = document.getElementById('answerInput');
+    const text = (recFinal || ai.value || document.getElementById('answerText').textContent).trim();
+    if (!text || locked) return;
+    locked = true;
+    const confirmBtn = document.getElementById('confirmBtn');
+    confirmBtn.disabled = true;
+    const s = roundSituations[openIndex];
+    // лоадер: жюри оценивает 3-5 с
+    const loader = document.getElementById('judgeLoader');
+    loader.classList.add('show');
+    // В режиме без камеры не держим статичное фото всё время ответа API:
+    // комиксная обработка начинается сразу, а итоговая эмоция уточняется по оценке.
+    if (!stream && syntheticCharacterImage) freezeFrame('normal');
+    const t0 = performance.now();
+    let judge = null;
+    try {
+      const localJudge = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+      const judgeUrl = localJudge ? 'http://127.0.0.1:8003/judge' : '/quiz/api/judge';
+      const r = await fetch(judgeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ situation: s.d, answer: text })
+      });
+      if (r.ok) judge = await r.json();
+    } catch (e) { dbgLog('judge-error', { err: String(e) }); }
+    if (!judge || typeof judge.grade !== 'number' || typeof judge.cringe !== 'number') {
+      judge = { grade: 5, cringe: 5, description: 'Жюри молчит — сеть подвела. Но мы-то видели твоё лицо!', rank: 'Без оценки' };
+    }
+    // минимум ~1.2 с лоадера, чтобы не мигал при быстром ответе
+    const elapsed = performance.now() - t0;
+    if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
+    loader.classList.remove('show');
+    lastOpenResult = { situation: s.d, answer: text, grade: judge.grade, cringe: judge.cringe };
+    // Оценка задаёт реакцию, затем карточка исчезает на время чистого селфи.
+    await runScoreCountdown(judge);
+    openSum += judge.grade;
+    document.getElementById('openScore').innerHTML = `Рейтинг: <b>${openSum}</b>`;
+    showScoreBlock(judge);
+  }
+
+  function gradeReaction(grade) {
+    const key = grade < 5 ? 'bad' : grade < 7 ? 'normal' : grade < 9 ? 'super' : 'mega';
+    return { key, ...REACTION_TIERS[key] };
+  }
+
+  function runScoreCountdown(judge) {
+    return new Promise(resolve => {
+      const reaction = gradeReaction(judge.grade);
+      const openCard = document.querySelector('#openUi .openCard');
+      showPoseCue(`${reaction.label} ${judge.grade}`, reaction.tone);
+      beep(reaction.beep, .12, 'square', .1);
+      if (!stream) {
+        setTimeout(async () => {
+          openCard.classList.add('hidden');
+          try {
+            await prepareSyntheticReaction(reaction.key);
+            if (reaction.key === 'bad') startRain(); else freezeFrame(reaction.key);
+            await waitForPortraitLayers();
+            captureOpenShot(judge.grade);
+          } finally {
+            hidePoseCue();
+            openCard.classList.remove('hidden');
+            resolve();
+          }
+        }, 220);
+        return;
+      }
+      setTimeout(() => {
+        openCard.classList.add('hidden');
+        showPoseCue('2', 'count'); beep(430, .08, 'square', .08);
+      }, 420);
+      setTimeout(() => { showPoseCue('1', 'count'); beep(560, .08, 'square', .09); }, 1040);
+      setTimeout(async () => {
+        showPoseCue('ЩЁЛК!', 'snap'); beep(1050, .07, 'square', .12);
+        try {
+          if (reaction.key === 'bad') startRain(); else freezeFrame(reaction.key);
+          await waitForPortraitLayers();
+          captureOpenShot(judge.grade);
+        } finally {
+          hidePoseCue();
+          openCard.classList.remove('hidden');
+          resolve();
+        }
+      }, 1660);
+    });
+  }
+
+  function waitForPortraitLayers(timeout = stream ? 2500 : 900) {
+    if (!stream && !syntheticCharacterImage) return Promise.resolve();
+    const started = performance.now();
+    return new Promise(resolve => {
+      const poll = () => {
+        if ((personLayer && bgLayer) || performance.now() - started >= timeout) resolve();
+        else setTimeout(poll, 50);
+      };
+      poll();
+    });
+  }
+
+  function showScoreBlock(judge) {
+    document.getElementById('scoreBig').textContent = `${judge.grade}/10`;
+    document.getElementById('verdictText').textContent = `${judge.rank}. ${judge.description} Кринж: ${judge.cringe}/10.`;
+    // по ТЗ: остаются только селфи, оценка и кнопка развернуть коммент
+    document.getElementById('situationText').classList.add('hidden');
+    document.getElementById('openAnswerBox').classList.add('hidden');
+    document.getElementById('scoreBlock').classList.remove('hidden');
+    const nb = document.getElementById('openNextBtn');
+    nb.textContent = (openIndex >= OPEN_TOTAL - 1) ? 'Результат 🏁' : 'Дальше →';
+    nb.classList.remove('hidden');
+  }
+
+  function captureOpenShot(grade) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    drawPosterVisual(x, w, h);
+    x.font = '900 22px sans-serif';
+    x.textAlign = 'right';
+    x.textBaseline = 'top';
+    x.lineWidth = 6;
+    x.strokeStyle = 'rgba(0,0,0,.65)';
+    const label = `${gradeReaction(grade).label} ${grade}/10`;
+    x.strokeText(label, w - 16, 16);
+    x.fillStyle = '#ffd93d';
+    x.fillText(label, w - 16, 16);
+    roundShots.push(c.toDataURL('image/jpeg', 0.9));
+  }
+
+  function wrapText(x, text, maxW) {
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const wd of words) {
+      const t = cur ? cur + ' ' + wd : wd;
+      if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = wd; }
+      else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  // Нижняя плашка на итоговой карточке: рейтинг + название игры.
+  function drawShareFooter(x, w, h) {
+    const plateH = Math.max(120, Math.min(170, Math.round(h * 0.18)));
+    const plate = x.createLinearGradient(0, h - plateH, 0, h);
+    plate.addColorStop(0, 'rgba(4,2,14,0)');
+    plate.addColorStop(1, 'rgba(4,2,14,0.92)');
+    x.fillStyle = plate; x.fillRect(0, h - plateH, w, plateH);
+    const avg = openSum / OPEN_TOTAL;
+    const label = `🎯 Рейтинг ${openSum}/${OPEN_TOTAL * 10}`;
+    const rSize = Math.max(30, Math.min(40, Math.round(w * 0.095)));
+    const tSize = Math.max(18, Math.min(26, Math.round(w * 0.062)));
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    // название игры
+    x.font = `900 ${tSize}px sans-serif`;
+    x.lineWidth = Math.max(4, Math.round(tSize / 4));
+    x.strokeStyle = 'rgba(0,0,0,0.75)';
+    x.strokeText('БОЙ С КРИНЖЕМ', w / 2, h - 30);
+    x.fillStyle = '#ffffff';
+    x.fillText('БОЙ С КРИНЖЕМ', w / 2, h - 30);
+    // рейтинг
+    x.font = `900 ${rSize}px sans-serif`;
+    x.lineWidth = 8;
+    x.strokeStyle = 'rgba(0,0,0,0.65)';
+    x.strokeText(label, w / 2, h - 66);
+    x.fillStyle = avg >= 6 ? '#ffd93d' : '#8ab4ff';
+    x.fillText(label, w / 2, h - 66);
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = src;
+    });
+  }
+
+  // Итоговая карточка для шаринга: выбранный стоп-кадр + плашка с рейтингом и названием.
+  async function buildOpenShareCanvas() {
+    const src = selectedShot || (roundShots.length ? roundShots[roundShots.length - 1] : null);
+    const c = document.createElement('canvas');
+    let w, h, x;
+    if (src) {
+      let base = null;
+      try { base = await loadImage(src); } catch (e) { base = null; }
+      if (base) {
+        w = base.naturalWidth || window.innerWidth;
+        h = base.naturalHeight || window.innerHeight;
+        c.width = w; c.height = h;
+        x = c.getContext('2d');
+        x.drawImage(base, 0, 0, w, h);
+        drawShareFooter(x, w, h);
+        return c;
+      }
+    }
+    // фолбэк: собрать из текущего состояния канваса
+    w = window.innerWidth; h = window.innerHeight;
+    c.width = w; c.height = h;
+    x = c.getContext('2d');
+    drawPosterVisual(x, w, h);
+    drawShareFooter(x, w, h);
+    return c;
+  }
+
+  function finishOpen() {
+    stopFx();
+    metrikaGoal('round_finish');
+    document.getElementById('openUi').classList.add('hidden');
+    document.getElementById('openProgress').style.width = '100%';
+    const avg = openSum / OPEN_TOTAL;
+    const win = avg >= 6;
+    const cameraUpsell = !stream;
+    document.getElementById('endTitle').textContent = '🎯 РЕЗУЛЬТАТ';
+    document.getElementById('endText').textContent = cameraUpsell
+      ? `Средняя оценка: ${avg.toFixed(1)}/10. Включи камеру и переиграй, чтобы получить свои комикс-фото.`
+      : `Средняя оценка выхода из ситуаций: ${avg.toFixed(1)}/10.`;
+    renderRoundStrip();
+    endScreen.classList.toggle('cameraUpsell', cameraUpsell);
+    cameraReplayBtn.classList.toggle('hidden', !cameraUpsell);
+    endScreen.classList.remove('hidden');
+    syncCamBtnState();
+    prepareSyntheticReaction(gradeReaction(avg).key).then(() => {
+      if (win) freezeFrame(true); else startRain();
+    });
+    playMenuMusic();
+  }
+
+  // ---------- Старт ----------
+  let startPending = false;
+
+  function setStartPending(pending, label = '◌ Включаем камеру…') {
+    startPending = pending;
+    startBtn.disabled = pending;
+    openBtn.disabled = pending;
+    if (pending) { startBtn.textContent = label; openBtn.textContent = label; }
+  }
+
+  startBtn.onclick = async () => {
+    if (startPending) return;
+    playMenuMusic();
+    openMode = false;
+    setStartPending(true, '◌ Включаем камеру…');
+    let ok = await startCamera();
+    if (ok && !segmenter) {
+      setStartPending(true, '◌ Загружаем эффекты…');
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (!model) { stopCamera(); ok = false; }
+    }
+    if (!ok) {
+      modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
+      await prepareSyntheticReaction('normal');
+    }
+    startPending = false;
     startScreen.classList.add('hidden');
+    stopMenuMusic();
+    metrikaGoal(stream ? 'game_start_camera' : 'game_start_camera_free', { mode:'quiz' });
     startGame();
   };
-  document.getElementById('againBtn').onclick = () => startGame();
+
+  openBtn.onclick = async () => {
+    if (startPending) return;
+    playMenuMusic();
+    openMode = true;
+    setStartPending(true, '◌ Включаем камеру…');
+    let ok = await startCamera();
+    if (!segmenter) {
+      setStartPending(true, '◌ Загружаем эффекты…');
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (ok && !model) { stopCamera(); ok = false; }
+    }
+    if (!ok) {
+      modelHint.textContent = 'Камера недоступна — играем в режиме комикс-карточек';
+      await prepareSyntheticReaction('normal');
+    }
+    startPending = false;
+    startScreen.classList.add('hidden');
+    stopMenuMusic();
+    const started = await startOpenGame();
+    if (!started) {
+      stopCamera();
+      startScreen.classList.remove('hidden');
+      playMenuMusic();
+      setStartPending(false);
+      setStartModelState('ready');
+    }
+  };
+  // ---------- Открытые вопросы: управление ----------
+  document.getElementById('recBtn').onclick = startRec;
+  document.getElementById('stopRecBtn').onclick = stopRec;
+  document.getElementById('typeBtn').onclick = enableManualAnswer;
+  document.getElementById('reRecBtn').onclick = () => {
+    recFinal = '';
+    recLastText = '';
+    const at = document.getElementById('answerText');
+    at.textContent = ''; at.classList.add('hidden');
+    document.getElementById('confirmBtn').classList.add('hidden');
+    document.getElementById('reRecBtn').classList.add('hidden');
+    document.getElementById('recBtn').classList.remove('hidden');
+    startRec();
+  };
+  document.getElementById('confirmBtn').onclick = submitOpenAnswer;
+  document.getElementById('verdictToggle').onclick = () => {
+    document.getElementById('verdictText').classList.toggle('hidden');
+  };
+  document.getElementById('answerInput').addEventListener('input', () => {
+    document.getElementById('confirmBtn').classList.toggle('hidden', !document.getElementById('answerInput').value.trim());
+  });
+  document.getElementById('answerInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitOpenAnswer();
+  });
+  document.getElementById('openNextBtn').onclick = () => {
+    document.getElementById('openNextBtn').classList.add('hidden');
+    openIndex++;
+    if (openIndex >= OPEN_TOTAL) finishOpen();
+    else { metrikaGoal('next_question'); nextSituation(); }
+  };
+  document.getElementById('exitRoundBtn').onclick = () => {
+    if (!confirm('Выйти из раунда? Текущий прогресс не сохранится.')) return;
+    clearRecTimer();
+    if (rec) {
+      rec.onend = null; rec.onerror = null;
+      try { rec.abort(); } catch (e) {}
+      rec = null;
+    }
+    stopFx();
+    stopCamera();
+    document.getElementById('openUi').classList.add('hidden');
+    endScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    playMenuMusic();
+    setStartPending(false);
+    setStartModelState(segmenter ? 'ready' : 'error');
+    syncCamBtnState();
+  };
+  document.getElementById('againBtn').onclick = async () => {
+    stopMenuMusic();
+    if (openMode) {
+      const started = await startOpenGame();
+      if (!started) playMenuMusic();
+    } else {
+      startGame();
+    }
+  };
+
+  cameraReplayBtn.onclick = async () => {
+    metrikaGoal('camera_replay_click');
+    cameraReplayBtn.disabled = true;
+    cameraReplayBtn.textContent = '◌ Включаем камеру…';
+    let ok = await startCamera();
+    if (ok && !segmenter) {
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (!model) { stopCamera(); ok = false; }
+    }
+    cameraReplayBtn.disabled = false;
+    cameraReplayBtn.textContent = '📸 Переиграть с камерой';
+    if (!ok) {
+      metrikaGoal('camera_replay_failed', { reason:lastCameraError || 'model' });
+      document.getElementById('endText').textContent = 'Не удалось включить камеру. Проверь разрешение браузера и попробуй ещё раз.';
+      return;
+    }
+    syntheticCharacterImage = null;
+    stopMenuMusic();
+    const started = await startOpenGame();
+    if (!started) {
+      metrikaGoal('camera_replay_failed', { reason:'situations' });
+      stopCamera(); playMenuMusic();
+      document.getElementById('endText').textContent = 'Камера включилась, но ситуации не загрузились. Нажми ещё раз — камера запросится заново.';
+    }
+  };
+
+  function metrikaGoal(goalId, extra = {}) {
+    try {
+      if (!window.ym) return;
+      const params = { landing_variant:landingVariant || 'default', creative_variant:creativeVariant, ...extra };
+      ym(112316717, 'reachGoal', goalId, params);
+      const base = location.pathname.replace(/\/$/, '');
+      ym(112316717, 'hit', `${base}/events/${encodeURIComponent(goalId)}`, {
+        title:`SelfieCringe · ${goalId}`, params
+      });
+    } catch (e) { dbgLog('metrika-error', { err: String(e) }); }
+  }
 
   // собрать картинку для шаринга: фон + человек + контур + счёт
   function buildShareImage() {
@@ -1656,17 +2864,18 @@
 
   shareBtn.onclick = async () => {
     try {
-      const img = buildShareImage();
+      const img = openMode ? await buildOpenShareCanvas() : buildShareImage();
       const blob = await new Promise(res => img.toBlob(res, 'image/png'));
       if (!blob) throw new Error('toBlob failed');
       const file = new File([blob], 'selfie-quiz.png', { type: 'image/png' });
       const shareData = {
         files: [file],
         title: 'Селфи-квиз',
-        text: `Я набрал ${score} из ${QUESTIONS.length}!`
+        text: openMode ? `Мой рейтинг выхода из неловких ситуаций: ${openSum} из ${OPEN_TOTAL * 10}!` : `Я набрал ${score} из ${QUESTIONS.length}!`
       };
       if (navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
+        metrikaGoal('share');
         return;
       }
       // фолбэк: скачать
@@ -1676,12 +2885,40 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
+      metrikaGoal('share');
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch (e) {
       dbgLog('share-error', { err: String(e) });
     }
   };
-  camOffBtn.onclick = () => { stopCamera(); camOffBtn.textContent = camOffBtn.textContent.includes('🚫') ? '📷 Камера' : '🚫 Камера'; };
+  camOffBtn.onclick = async () => {
+    if (stream) {
+      stopCamera();
+      await prepareSyntheticReaction('normal');
+      syncCamBtnState();
+      return;
+    }
+    metrikaGoal('camera_enable_click', { source:'round' });
+    camOffBtn.textContent = '◌ Камера…';
+    if (window.__camPermission === undefined) window.__camPermission = await getCamPermission();
+    const ok = await startCamera();
+    let cameraErr = lastCameraError || ''; // снимок до возможного ухода в модель
+    if (ok && !segmenter) {
+      const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
+      if (!model) {
+        lastCamStage = 'model';            // камера-то включилась — упала сегментация
+        lastCameraError = 'model_load_fail';
+        stopCamera(); ok = false;
+      }
+    }
+    dbgLog('camera-enable-attempt', { ok, ...camDiagContext(ok ? 'ok' : (cameraErr || lastCameraError)) });
+    metrikaGoal(ok ? 'camera_enabled' : 'camera_enable_failed', {
+      source:'round',
+      ok,
+      ...camDiagContext(ok ? 'ok' : (cameraErr || lastCameraError)) // stage | reason | platform | secure | permission | inIframe
+    });
+    syncCamBtnState();
+  };
 
 })();
 </script>
