@@ -713,10 +713,46 @@
   }
   function hideSegError() { segError.classList.remove('show'); }
 
+  // --- Диагностика камеры: единый источник для метрик ---
+  // Разводим по двум осям: ГДЕ упало (stage) и ПОЧЕМУ (reason).
+  // Раньше всё сливалось в one-word lastCameraError, и часть 'camera_enable_failed'
+  // вообще была про загрузку ML-модели, а не про камеру.
+  let lastCameraError = '';       // reason по месту: getUserMedia_reject:NotAllowedError / frame_timeout / model_load_fail ...
+  let lastCamStage = 'camera';    // 'camera' | 'model' | 'never' — где именно провал
+  function detectPlatform() {
+    const ua = navigator.userAgent || '';
+    const md = navigator.userAgentData && navigator.userAgentData.mobile;
+    if (/iPad|iPhone|iPod/.test(ua) || (md && /Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
+    if (/Android/.test(ua)) return 'android';
+    if (md) return 'mobile';
+    return 'desktop';
+  }
+  // 'granted'|'denied'|'prompt'|'unsupported' — что браузер уже знает о разрешении на камеру.
+  // На iOS Safari всегда 'unsupported', на desktop Chrome/Edge даёт настоящее состояние.
+  async function getCamPermission() {
+    try {
+      if (!navigator.permissions || !navigator.permissions.query) return 'unsupported';
+      const s = await navigator.permissions.query({ name: 'camera' });
+      return s.state; // granted | denied | prompt
+    } catch (e) { return 'unsupported'; }
+  }
+  // Общая точка: один объект с контекстом для каждой попытки включения камеры.
+  function camDiagContext(reasonOverride) {
+    return {
+      stage: lastCamStage,
+      reason: reasonOverride || lastCameraError || 'model',
+      platform: detectPlatform(),
+      secure: location.protocol === 'https:',
+      permission: window.__camPermission || 'unknown',
+      inIframe: (() => { try { return window.self !== window.top; } catch (e) { return true; } })(),
+    };
+  }
   let stream = null;
   let syntheticCharacterImage = null;
-  let lastCameraError = '';
   let currentCharacterIndex = 0;
+  // Пре-запрос разрешения БЕЗ запроса юзеру (permissions.query безопасен, жеста не требует).
+  // Отдаёт точное состояние на desktop Chrome/Edge до первого клика; на iOS всегда 'unsupported'.
+  if (window.__camPermission === undefined) getCamPermission().then(s => { window.__camPermission = s; }).catch(() => {});
   let roundCharacterOrder = [];
   const syntheticCharacterPromises = new Map();
   const CHARACTER_SETS = [
@@ -875,21 +911,40 @@
   resize();
 
   async function startCamera() {
+    lastCamStage = 'camera';
+    lastCameraError = '';
+    // iOS: при отказе getUserMedia может ДОЛГО не резолвиться — ни resolve, ни reject.
+    // Ловим через race, чтобы не зависать в 'Включаем камеру…' и получить причину.
+    let gUM;
     try {
-      lastCameraError = '';
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
+      gUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+      if (!gUM) throw new TypeError('getUserMedia unavailable');
+      stream = await Promise.race([
+        gUM.call(navigator.mediaDevices, {
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('getUserMedia timeout (>9s)')), 9000)),
+      ]);
+    } catch (e) {
+      // user отклонил / нет прав / нет устройства / нет WebRTC / зависло
+      lastCameraError = 'getUserMedia_reject:' + (e && e.name ? e.name : String(e));
+      dbgLog('camera-unavailable', { err: String(e), ...camDiagContext() });
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.srcObject = null;
+      return false;
+    }
+    try {
       video.srcObject = stream;
       // Поток ещё не означает, что браузер начал отдавать кадры. Особенно заметно
       // на iOS: без ожидания play/metadata интерфейс переходил к чёрному экрану.
       await video.play();
       if (!video.videoWidth || video.readyState < 2) {
         await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => { cleanup(); reject(new Error('camera frame timeout')); }, 4000);
+          const timeout = setTimeout(() => { cleanup(); reject(new Error('frame_timeout')); }, 4000);
           const ready = () => { if (video.videoWidth && video.readyState >= 2) { cleanup(); resolve(); } };
-          const failed = () => { cleanup(); reject(new Error('camera video error')); };
+          const failed = () => { cleanup(); reject(new Error('video_error')); };
           const cleanup = () => {
             clearTimeout(timeout);
             video.removeEventListener('loadeddata', ready);
@@ -902,17 +957,17 @@
           ready();
         });
       }
-      syntheticCam.classList.add('hidden');
-      syncCamBtnState();
-      return true;
     } catch (e) {
-      lastCameraError = e && e.name ? e.name : String(e);
-      dbgLog('camera-unavailable', { err: String(e) });
+      lastCameraError = e && e.message ? String(e.message) : 'video_unknown';
+      dbgLog('camera-unavailable', { err: String(e), ...camDiagContext() });
       if (stream) stream.getTracks().forEach(t => t.stop());
       stream = null;
       video.srcObject = null;
       return false;
     }
+    syntheticCam.classList.add('hidden');
+    syncCamBtnState();
+    return true;
   }
 
   function stopCamera() {
@@ -2845,12 +2900,23 @@
     }
     metrikaGoal('camera_enable_click', { source:'round' });
     camOffBtn.textContent = '◌ Камера…';
+    if (window.__camPermission === undefined) window.__camPermission = await getCamPermission();
     const ok = await startCamera();
+    let cameraErr = lastCameraError || ''; // снимок до возможного ухода в модель
     if (ok && !segmenter) {
       const model = await initSelfieSeg(window.__quizDebug.segState === 'init-error');
-      if (!model) { stopCamera(); ok = false; }
+      if (!model) {
+        lastCamStage = 'model';            // камера-то включилась — упала сегментация
+        lastCameraError = 'model_load_fail';
+        stopCamera(); ok = false;
+      }
     }
-    metrikaGoal(ok ? 'camera_enabled' : 'camera_enable_failed', { source:'round', reason:ok ? 'ok' : (lastCameraError || 'model') });
+    dbgLog('camera-enable-attempt', { ok, ...camDiagContext(ok ? 'ok' : (cameraErr || lastCameraError)) });
+    metrikaGoal(ok ? 'camera_enabled' : 'camera_enable_failed', {
+      source:'round',
+      ok,
+      ...camDiagContext(ok ? 'ok' : (cameraErr || lastCameraError)) // stage | reason | platform | secure | permission | inIframe
+    });
     syncCamBtnState();
   };
 
