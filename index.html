@@ -185,7 +185,7 @@
   #segError.show { display:block; }
   #camHelp {
     position:fixed; top:max(14px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
-    z-index:9; display:none; align-items:flex-start; gap:10px; max-width:min(92%,360px);
+    z-index:9; display:none; align-items:flex-start; gap:10px; width:calc(100% - 20px); max-width:440px;
     padding:11px 13px; color:var(--paper); background:var(--red); border:3px solid var(--ink);
     border-radius:4px; box-shadow:5px 5px 0 var(--ink);
     font:800 12px/1.35 -apple-system,Segoe UI,Roboto,sans-serif; text-align:left;
@@ -719,12 +719,12 @@
   // Показывает понятную подсказку по причине отказа камеры.
   function showCamHelp(kind) {
     const copy = {
-      denied: { t: 'Нужно разрешить камеру', b: 'Нажми «Разрешить» в запросе браузера. Если окно не появилось — открой настройки сайта (значок 🔒/ⓘ рядом с адресом) и разреши камеру.' },
-      dismissed: { t: 'Нужно разрешить камеру', b: 'Нажми «Разрешить» в запросе браузера. Если окно не появилось — открой настройки сайта (значок 🔒/ⓘ рядом с адресом) и разреши камеру.' },
-      busy: { t: 'Камера занята', b: 'Камеру использует другое приложение. Закрой его и нажми ещё раз.' },
-      nodevice: { t: 'Камера не найдена', b: 'На этом устройстве нет доступной камеры — можно играть в режиме комикс-карточек без камеры.' },
-      insecure: { t: 'Нужен безопасный адрес', b: 'Камера работает только на https. Открой игру по адресу https://… и попробуй снова.' },
-      generic: { t: 'Камера не включилась', b: 'Попробуй ещё раз или играй в режиме комикс-карточек без камеры.' }
+      denied: { t: 'Разреши камеру', b: 'Нажми «Разрешить» в запросе браузера.' },
+      dismissed: { t: 'Разреши камеру', b: 'Нажми «Разрешить» в запросе браузера.' },
+      busy: { t: 'Камера занята', b: 'Закрой другое приложение с камерой и попробуй снова.' },
+      nodevice: { t: 'Камера не найдена', b: 'Можно играть без камеры — в режиме комикс-карточек.' },
+      insecure: { t: 'Нужен https', b: 'Камера работает только на безопасном адресе (https://).' },
+      generic: { t: 'Камера не включилась', b: 'Попробуй ещё раз или играй без камеры.' }
     }[kind] || null;
     if (!copy) { camHelp.classList.remove('show'); return; }
     camHelpTitle.textContent = copy.t;
