@@ -318,6 +318,99 @@ def feedback_route():
     return jsonify({"success": True})
 
 
+# ---------- Рейтинг реальной игры «Бой с кринжем» (cringebattle22) ----------
+# Тянем топ игроков из боевой БД игры, чтобы показать в квизе, что игра настоящая.
+RATING_DB_HOST = os.environ.get("CRINGE_DB_HOST", "62.113.96.121")
+RATING_DB_PORT = int(os.environ.get("CRINGE_DB_PORT", "3307"))
+RATING_DB_USER = os.environ.get("CRINGE_DB_USER", "rbrmbvps_cb22")
+RATING_DB_PASS = os.environ.get("CRINGE_DB_PASS", "fs4leLAJfb69v")
+RATING_DB_NAME = os.environ.get("CRINGE_DB_NAME", "vstoch2s_cb22")
+RATING_TOP_N = int(os.environ.get("CRINGE_RATING_TOP_N", "10"))
+RATING_CACHE_TTL = int(os.environ.get("CRINGE_RATING_CACHE_TTL", "300"))  # сек
+_rating_cache = {"at": 0.0, "data": None}
+_rating_lock = threading.Lock()
+
+
+def _fetch_rating():
+    """Тянем топ игроков из боевой БД. Возвращает dict для JSON."""
+    import pymysql
+    conn = pymysql.connect(
+        host=RATING_DB_HOST, port=RATING_DB_PORT, user=RATING_DB_USER,
+        password=RATING_DB_PASS, database=RATING_DB_NAME,
+        connect_timeout=6, read_timeout=8, charset="utf8mb4",
+    )
+    try:
+        with conn.cursor(pymysql.cursors.DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT u.nickname AS nickname, ur.sum_grade AS sum_grade,
+                       ur.avg_grade AS avg_grade, ur.game_count AS game_count
+                FROM user_rating ur
+                JOIN users u ON u.id = ur.user_id
+                WHERE u.nickname IS NOT NULL AND u.nickname <> ''
+                ORDER BY ur.sum_grade DESC
+                LIMIT %s
+                """,
+                (RATING_TOP_N,),
+            )
+            rows = cur.fetchall()
+            cur.execute("SELECT COUNT(*) AS total FROM user_rating")
+            total = int((cur.fetchone() or {}).get("total") or 0)
+    finally:
+        conn.close()
+    players = [
+        {
+            "rank": i + 1,
+            "name": str(r["nickname"]).strip(),
+            "score": int(r["sum_grade"] or 0),
+            "avg": round(float(r["avg_grade"] or 0), 2),
+            "games": int(r["game_count"] or 0),
+        }
+        for i, r in enumerate(rows)
+    ]
+    return {"players": players, "total": total}
+
+
+def get_rating(force=False):
+    """Кэшированный рейтинг (TTL), с защитой от одновременных запросов."""
+    now = time.monotonic()
+    with _rating_lock:
+        if (not force and _rating_cache["data"] is not None
+                and now - _rating_cache["at"] < RATING_CACHE_TTL):
+            return _rating_cache["data"]
+    try:
+        data = _fetch_rating()
+    except Exception as e:
+        print(f"[rating] DB error: {e}", flush=True)
+        with _rating_lock:
+            # отдаём последнее удачное, даже если протухло
+            if _rating_cache["data"] is not None:
+                return _rating_cache["data"]
+        return None
+    with _rating_lock:
+        _rating_cache["at"] = now
+        _rating_cache["data"] = data
+    return data
+
+
+@app.route("/rating", methods=["GET", "OPTIONS"])
+@app.route("/quiz/api/rating", methods=["GET", "OPTIONS"])
+def rating_route():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    data = get_rating()
+    if not data:
+        # БД недоступна — не ломаем квиз, отдаём пустой список
+        resp = jsonify({"players": [], "total": 0, "available": False})
+        resp.headers["Cache-Control"] = "no-store, private"
+        return resp, 200
+    payload = dict(data)
+    payload["available"] = True
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = "private, max-age=120"
+    return resp
+
+
 if __name__ == "__main__":
     print(f"[judge] listening on 0.0.0.0:{PORT}", flush=True)
     app.run(host="0.0.0.0", port=PORT, debug=False)
