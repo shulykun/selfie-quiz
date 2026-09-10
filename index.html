@@ -1066,10 +1066,31 @@
     lastCamStage = 'camera';
     lastCameraError = '';
     lastCamKind = '';
-    // Обновляем состояние разрешения перед запросом (может измениться между визитами).
-    // ⚠️ НЕ используем это как блокировку: часть браузеров (Android Chrome) отдаёт
-    // 'denied' ещё ДО ответа на промпт, хотя getUserMedia сам умеет показать железный запрос.
-    // Поэтому всегда пробуем getUserMedia — именно он триггерит аппаратный промпт.
+    // ⚠️ iOS/Safari: камера ОТКРЫВАЛАСЬ нормально и раньше. Любые await перед
+    // getUserMedia рвут user-gesture, и Safari не показывает системный запрос.
+    // Поэтому на iOS — прямой вызов getUserMedia без precheck/ретраев.
+    const isIOS = detectPlatform() === 'ios';
+    if (isIOS) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (e) {
+        lastCameraError = 'getUserMedia_reject:' + (e && e.name ? e.name : String(e));
+        lastCamKind = classifyCamError(e);
+        dbgLog('camera-unavailable', { err: String(e), kind: lastCamKind, ios: true, ...camDiagContext() });
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        video.srcObject = null;
+        showCamHelp(lastCamKind);
+        return false;
+      }
+      hideCamHelp();
+      return finishCameraStream();
+    }
+    // Не-iOS: всегда сначала пробуем getUserMedia — именно он триггерит системный промпт.
+    // permissions.query не решает (на Android Chrome бывает неточен).
     window.__camPermission = await getCamPermission();
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       lastCameraError = 'insecure_context';
@@ -1078,8 +1099,6 @@
       showCamHelp('insecure');
       return false;
     }
-    // iOS: при отказе getUserMedia может ДОЛГО не резолвиться — ни resolve, ни reject.
-    // Ловим через race, чтобы не зависать в 'Включаем камеру…' и получить причину.
     // Ретрай 1 раз при NotAllowedError (промпт мог закрыться/моргнуть; состояние query бывает неточным).
     let attemptErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -1111,6 +1130,11 @@
       return false;
     }
     hideCamHelp();
+    return finishCameraStream();
+  }
+
+  // Общая часть после получения потока: привязать видео и дождаться кадров.
+  async function finishCameraStream() {
     try {
       video.srcObject = stream;
       // Поток ещё не означает, что браузер начал отдавать кадры. Особенно заметно
