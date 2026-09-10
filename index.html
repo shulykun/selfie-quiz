@@ -198,6 +198,36 @@
     color:var(--ink); background:var(--yellow); border:2px solid var(--ink); border-radius:3px;
     font:1000 13px/1 Arial,sans-serif;
   }
+  /* Ссылка «предложить ситуацию» + модалка */
+  .suggest-link {
+    margin-top:10px; padding:0; cursor:pointer; color:rgba(255,248,223,.85);
+    background:none; border:0; font:900 12px/1.2 -apple-system,Segoe UI,Roboto,sans-serif;
+    text-decoration:underline; text-underline-offset:3px;
+  }
+  .modal { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(9,6,17,.72); }
+  .modal.hidden { display:none; }
+  .modalBox {
+    position:relative; width:100%; max-width:420px; max-height:88vh; overflow-y:auto;
+    padding:20px 16px 16px; text-align:left; color:var(--ink); background:var(--paper);
+    border:4px solid var(--ink); box-shadow:8px 9px 0 var(--ink);
+  }
+  .modalClose {
+    position:absolute; top:8px; right:8px; width:30px; height:30px; padding:0; cursor:pointer;
+    color:var(--paper); background:var(--ink); border:2px solid var(--ink); border-radius:3px; font:1000 15px/1 Arial,sans-serif;
+  }
+  .modalTitle { font:1000 18px/1.15 Impact,Arial Black,sans-serif; letter-spacing:.3px; margin:0 30px 6px 0; }
+  .modalSub { margin:0 0 12px; font:800 12px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; opacity:.85; }
+  .modalBox textarea, .modalBox input[type=text] {
+    display:block; width:100%; box-sizing:border-box; margin-bottom:9px; padding:10px 11px;
+    color:var(--ink); background:#fff; border:3px solid var(--ink); border-radius:3px;
+    font:800 13px/1.35 -apple-system,Segoe UI,Roboto,sans-serif; resize:vertical;
+  }
+  .modalBox textarea { min-height:96px; }
+  .modalBox #suggestWebsite { display:none !important; }
+  .modalBox .btn { width:100%; }
+  .modalStatus { margin-top:9px; min-height:16px; font:900 12px/1.35 -apple-system,Segoe UI,Roboto,sans-serif; text-align:center; }
+  .modalStatus.ok { color:#1c8a3c; }
+  .modalStatus.err { color:var(--red); }
   #poseCue {
     position:fixed; inset:0; z-index:4; display:none; place-items:center;
     pointer-events:none; text-align:center;
@@ -439,6 +469,7 @@
   body[data-landing] #startScreen #rulesLink { margin-top:auto; }
   body[data-landing] .cringeIntro { display:none; }
   body[data-landing] .landingOnly { display:block; }
+  body[data-landing] .landingRating { display:block; }
   body[data-landing] .landingCollage { display:none; }
   body[data-landing="collage"] .landingCollage { display:grid; }
   .landingEyebrow {
@@ -452,6 +483,15 @@
   .landingMeta { margin-top:12px; font:900 11px/1.2 ui-monospace,monospace; letter-spacing:.5px; }
   .landingProof { display:flex !important; gap:8px; justify-content:center; margin-top:12px; }
   .landingProof span { padding:6px 8px; border:2px solid var(--ink); background:rgba(255,248,223,.88); font-size:10px; font-weight:900; }
+  /* Рейтинг на лендинге (компактный) */
+  .landingRating { display:none; width:100%; max-width:380px; margin:12px auto 2px; padding:10px 11px;
+    text-align:left; color:var(--paper); background:rgba(9,6,17,.9); border:3px solid var(--paper); box-shadow:5px 5px 0 var(--ink); }
+  .landingRating .lrHead { font:1000 11px/1.2 ui-monospace,monospace; letter-spacing:1px; text-transform:uppercase; color:var(--yellow); margin-bottom:6px; text-align:center; }
+  .landingRating .lrRow { display:flex; align-items:baseline; gap:8px; padding:3px 0; font:800 12px/1.2 -apple-system,Segoe UI,Roboto,sans-serif; }
+  .landingRating .lrRank { flex:0 0 20px; text-align:right; color:var(--cyan); font-weight:1000; }
+  .landingRating .lrName { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .landingRating .lrScore { flex:0 0 auto; color:var(--yellow); font-weight:1000; }
+  .landingRating .lrFoot { margin-top:6px; text-align:center; font:800 9px/1.3 ui-monospace,monospace; color:rgba(255,248,223,.6); }
   .landingHero { display:none; }
 
   /* ---------- Вариант "collage": коллаж персонажей с эмоциями ---------- */
@@ -641,8 +681,14 @@
   <button class="btn hidden" id="startBtn">▶ Играть</button>
   <button class="btn" id="openBtn">▶ Начать баттл</button>
   <div class="landingProof landingOnly"><span>5 ситуаций</span><span>≈ 3 минуты</span><span>12+</span></div>
+  <div class="landingRating landingOnly" id="landingRating" aria-label="Рейтинг игроков">
+    <div class="lrHead">🏆 Топ игроков «Боя с кринжем»</div>
+    <div class="lrList"></div>
+    <div class="lrFoot">Всего игроков: <b class="lrTotal">0</b></div>
+  </div>
   <div id="modelHint">Ресурсы загрузятся после старта</div>
   <a id="rulesLink" href="https://cringe.roborumba.com/rules" target="_blank" rel="noopener">Правила игры</a>
+  <button type="button" id="suggestBtn" class="suggest-link">✍🏻 Предложить свою ситуацию</button>
   <button type="button" class="music-toggle music-entry" aria-label="Вкл/выкл музыку">🔊 Музыка</button>
 </div>
 <audio id="startMusic" src="assets/audio/clown.mp3" loop preload="auto" aria-hidden="true"></audio>
@@ -676,6 +722,21 @@
   <button data-style="original">Original</button>
   <button data-style="pop">Pop</button>
   <button data-style="manga">Manga</button>
+</div>
+
+<!-- Заявка на свою ситуацию (простейший способ — письмом) -->
+<div id="suggestModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="suggestTitle">
+  <div class="modalBox">
+    <button class="modalClose" type="button" id="suggestClose" aria-label="Закрыть">✕</button>
+    <div class="modalTitle" id="suggestTitle">✍🏻 Предложи свою ситуацию</div>
+    <p class="modalSub">Напиши неловкую ситуацию — мы добавим её в игру. Оставь контакт, если хочешь ответ.</p>
+    <textarea id="suggestText" maxlength="2000" placeholder="Например: ты громко чихнул в тихой маршрутке..."></textarea>
+    <input id="suggestName" type="text" maxlength="200" placeholder="Твоё имя (необязательно)">
+    <input id="suggestContact" type="text" maxlength="300" placeholder="Контакт: email или телега (необязательно)">
+    <input id="suggestWebsite" type="text" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <button class="btn" id="suggestSend">Отправить</button>
+    <div class="modalStatus" id="suggestStatus"></div>
+  </div>
 </div>
 
 <script>
@@ -2437,25 +2498,101 @@
     return ratingPromise;
   }
   async function renderRatingBoard() {
-    const board = document.getElementById('ratingBoard');
-    if (!board) return;
     const data = await fetchRating();
     const players = (data && data.players) || [];
-    if (!players.length) { board.classList.add('hidden'); return; }
-    const list = board.querySelector('.rbList');
-    list.textContent = '';
-    players.slice(0, 10).forEach(p => {
-      const row = document.createElement('div');
-      row.className = 'rbRow';
-      const rank = document.createElement('span'); rank.className = 'rbRank'; rank.textContent = p.rank + '.';
-      const name = document.createElement('span'); name.className = 'rbName'; name.textContent = p.name;
-      const score = document.createElement('span'); score.className = 'rbScore'; score.textContent = p.score + ' очк.';
-      row.append(rank, name, score);
-      list.appendChild(row);
-    });
-    board.querySelector('.rbTotal').textContent = String(data.total || 0);
-    board.classList.remove('hidden');
+    if (!players.length) return;
+    const total = String(data.total || 0);
+    // 1) Блок на экране результата (топ-10)
+    const board = document.getElementById('ratingBoard');
+    if (board) {
+      const list = board.querySelector('.rbList');
+      list.textContent = '';
+      players.slice(0, 10).forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'rbRow';
+        const rank = document.createElement('span'); rank.className = 'rbRank'; rank.textContent = p.rank + '.';
+        const name = document.createElement('span'); name.className = 'rbName'; name.textContent = p.name;
+        const score = document.createElement('span'); score.className = 'rbScore'; score.textContent = p.score + ' очк.';
+        row.append(rank, name, score);
+        list.appendChild(row);
+      });
+      board.querySelector('.rbTotal').textContent = total;
+      board.classList.remove('hidden');
+    }
+    // 2) Компактный блок на лендинге (топ-5)
+    const lb = document.getElementById('landingRating');
+    if (lb) {
+      const list = lb.querySelector('.lrList');
+      list.textContent = '';
+      players.slice(0, 5).forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'lrRow';
+        const rank = document.createElement('span'); rank.className = 'lrRank'; rank.textContent = p.rank + '.';
+        const name = document.createElement('span'); name.className = 'lrName'; name.textContent = p.name;
+        const score = document.createElement('span'); score.className = 'lrScore'; score.textContent = p.score + ' очк.';
+        row.append(rank, name, score);
+        list.appendChild(row);
+      });
+      lb.querySelector('.lrTotal').textContent = total;
+    }
   }
+  // Заполняем рейтинг сразу при загрузке (виден и на лендинге, и на старте).
+  (async function initRating() {
+    await renderRatingBoard();
+  })();
+
+  // ---------- Заявка на свою ситуацию (простейшим способом — письмом) ----------
+  (function initSuggest() {
+    const modal = document.getElementById('suggestModal');
+    const openBtn = document.getElementById('suggestBtn');
+    if (!modal || !openBtn) return;
+    const closeBtn = document.getElementById('suggestClose');
+    const sendBtn = document.getElementById('suggestSend');
+    const status = document.getElementById('suggestStatus');
+    const textEl = document.getElementById('suggestText');
+    const nameEl = document.getElementById('suggestName');
+    const contactEl = document.getElementById('suggestContact');
+    const honey = document.getElementById('suggestWebsite');
+    const open = () => { modal.classList.remove('hidden'); status.textContent = ''; status.className = 'modalStatus'; setTimeout(() => textEl.focus(), 50); };
+    const close = () => modal.classList.add('hidden');
+    openBtn.onclick = open;
+    closeBtn.onclick = close;
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+    sendBtn.onclick = async () => {
+      const situation = textEl.value.trim();
+      if (situation.length < 10) { status.textContent = 'Опиши ситуацию чуть подробнее'; status.className = 'modalStatus err'; return; }
+      sendBtn.disabled = true;
+      status.textContent = 'Отправляем…'; status.className = 'modalStatus';
+      try {
+        const pageDir = location.pathname.split('/').slice(0, -1).join('/');
+        const res = await fetch((pageDir || '') + '/quiz/api/situation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            situation,
+            name: nameEl.value.trim(),
+            contact: contactEl.value.trim(),
+            website: honey ? honey.value : ''
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          status.textContent = 'Спасибо! Ситуация отправлена 🎤';
+          status.className = 'modalStatus ok';
+          textEl.value = ''; if (honey) honey.value = '';
+          setTimeout(close, 1600);
+        } else {
+          status.textContent = (data && data.error) || 'Не получилось, попробуй ещё раз';
+          status.className = 'modalStatus err';
+        }
+      } catch (e) {
+        status.textContent = 'Сеть подвела — попробуй ещё раз';
+        status.className = 'modalStatus err';
+      }
+      sendBtn.disabled = false;
+    };
+  })();
 
   // Забираем именно тот шоу-кадр, который видит пользователь: вместе с лучами,
   // impact-частицами, семейством failure-сцен, искрами, слэм-текстами и вспышками.

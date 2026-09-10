@@ -38,6 +38,8 @@ FEEDBACK_WINDOW_SECONDS = 60 * 60
 FEEDBACK_MAIL_TO = os.environ.get("QUIZ_FEEDBACK_MAIL_TO", "shulginov@roborumba.com")
 FEEDBACK_MSMTP_ACCOUNT = os.environ.get("QUIZ_FEEDBACK_MSMTP_ACCOUNT", "yandex")
 FEEDBACK_LOG_PATH = "/srv/selfie-cringe/private/feedback.log"
+SITUATION_LOG_PATH = os.environ.get("QUIZ_SITUATION_LOG_PATH", "/srv/selfie-cringe/private/situations.log")
+SITUATION_RATE_LIMIT = int(os.environ.get("QUIZ_SITUATION_SUBMIT_LIMIT", "5"))
 TASK_BASE_PATH = os.environ.get(
     "CRINGE_TASK_BASE",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_data", "cringe_task_base.xlsx"),
@@ -158,6 +160,50 @@ def send_feedback_email(name: str, contact: str, text: str, ip: str) -> bool:
             }, ensure_ascii=False) + "\n")
     except Exception as e:
         print(f"[feedback] log write error: {e}", flush=True)
+    return ok
+
+
+def send_situation_email(name: str, contact: str, situation: str, ip: str) -> bool:
+    """Заявка на свою ситуацию для игры — шлём на почту через msmtp."""
+    subject_b64 = base64.b64encode("Заявка на ситуацию: Бой с кринжем".encode("utf-8")).decode("ascii")
+    raw = (
+        f"From: {FEEDBACK_MAIL_TO}\r\n"
+        f"To: {FEEDBACK_MAIL_TO}\r\n"
+        f"Subject: =?UTF-8?B?{subject_b64}?=\r\n"
+        "MIME-Version: 1.0\r\n"
+        "Content-Type: text/plain; charset=UTF-8\r\n\r\n"
+        "Новая ситуация для игры «Бой с кринжем»\r\n\r\n"
+        f"👤 Имя: {name or '—'}\r\n"
+        f"📮 Контакт: {contact or '—'}\r\n"
+        f"✍🏻 Ситуация:\r\n{situation}\r\n\r\n"
+        f"🕐 {time.strftime('%d.%m.%Y %H:%M:%S')} · {ip}\r\n"
+    )
+    try:
+        proc = subprocess.run(
+            ["/usr/bin/msmtp", "-a", FEEDBACK_MSMTP_ACCOUNT, FEEDBACK_MAIL_TO],
+            input=raw.encode("utf-8"),
+            capture_output=True,
+            timeout=30,
+        )
+        ok = proc.returncode == 0
+        if not ok:
+            print(f"[situation] msmtp error: {proc.stderr.decode('utf-8', 'ignore')[:400]}", flush=True)
+    except Exception as e:
+        ok = False
+        print(f"[situation] msmtp exception: {e}", flush=True)
+    try:
+        os.makedirs(os.path.dirname(SITUATION_LOG_PATH), exist_ok=True)
+        with open(SITUATION_LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "ip": ip,
+                "name": name,
+                "contact": contact,
+                "situation": situation,
+                "sent": ok,
+            }, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"[situation] log write error: {e}", flush=True)
     return ok
 
 
@@ -318,6 +364,35 @@ def feedback_route():
     return jsonify({"success": True})
 
 
+@app.route("/situation", methods=["POST", "OPTIONS"])
+@app.route("/quiz/api/situation", methods=["POST", "OPTIONS"])
+def situation_route():
+    """Заявка на свою ситуацию для игры (простейший способ — письмом на почту)."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    client_id = get_client_id()
+    if is_rate_limited(
+        client_id,
+        scope="situation_submit",
+        limit=SITUATION_RATE_LIMIT,
+        window=FEEDBACK_WINDOW_SECONDS,
+    ):
+        return jsonify({"error": "rate limit exceeded"}), 429
+    data = request.get_json(silent=True) or {}
+    if data.get("website"):
+        return jsonify({"success": True})
+    name = str(data.get("name") or "").strip()[:200]
+    contact = str(data.get("contact") or "").strip()[:300]
+    situation = str(data.get("situation") or "").strip()
+    if len(situation) < 10 or len(situation) > 2000:
+        return jsonify({"success": False, "error": "Опиши ситуацию чуть подробнее (10–2000 символов)"}), 400
+    sent = send_situation_email(name, contact, situation, client_id)
+    print(f"[situation] from {client_id} name={name!r} contact={contact!r} sent={sent}", flush=True)
+    if not sent:
+        return jsonify({"success": False, "error": "Не удалось отправить, попробуй ещё раз"}), 500
+    return jsonify({"success": True})
+
+
 # ---------- Рейтинг реальной игры «Бой с кринжем» (cringebattle22) ----------
 # Тянем топ игроков из боевой БД игры, чтобы показать в квизе, что игра настоящая.
 RATING_DB_HOST = os.environ.get("CRINGE_DB_HOST", "62.113.96.121")
@@ -326,9 +401,41 @@ RATING_DB_USER = os.environ.get("CRINGE_DB_USER", "rbrmbvps_cb22")
 RATING_DB_PASS = os.environ.get("CRINGE_DB_PASS", "fs4leLAJfb69v")
 RATING_DB_NAME = os.environ.get("CRINGE_DB_NAME", "vstoch2s_cb22")
 RATING_TOP_N = int(os.environ.get("CRINGE_RATING_TOP_N", "10"))
-RATING_CACHE_TTL = int(os.environ.get("CRINGE_RATING_CACHE_TTL", "300"))  # сек
+# Рейтинг тянется с БД ОДИН раз и отдаётся из кэша (Вадим: «запрос один раз с базы»).
+# TTL по умолчанию — 6 часов; при недоступности БД отдаём последнее удачное (диск-кэш переживает рестарт).
+RATING_CACHE_TTL = int(os.environ.get("CRINGE_RATING_CACHE_TTL", "21600"))
+RATING_CACHE_FILE = os.environ.get(
+    "CRINGE_RATING_CACHE_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_data", "rating_cache.json"),
+)
 _rating_cache = {"at": 0.0, "data": None}
 _rating_lock = threading.Lock()
+
+
+def _load_rating_disk():
+    """Диск-кэш, чтобы после рестарта не дёргать БД (запрос один раз)."""
+    try:
+        with open(RATING_CACHE_FILE, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        if obj.get("data"):
+            _rating_cache["data"] = obj["data"]
+            _rating_cache["at"] = float(obj.get("at") or 0)
+            print(f"[rating] disk cache loaded: {len(obj['data'].get('players', []))} players", flush=True)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[rating] disk cache load error: {e}", flush=True)
+
+
+def _save_rating_disk(data):
+    try:
+        os.makedirs(os.path.dirname(RATING_CACHE_FILE), exist_ok=True)
+        tmp = RATING_CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"at": time.time(), "data": data}, f, ensure_ascii=False)
+        os.replace(tmp, RATING_CACHE_FILE)
+    except Exception as e:
+        print(f"[rating] disk cache save error: {e}", flush=True)
 
 
 def _fetch_rating():
@@ -390,6 +497,7 @@ def get_rating(force=False):
     with _rating_lock:
         _rating_cache["at"] = now
         _rating_cache["data"] = data
+    _save_rating_disk(data)
     return data
 
 
@@ -413,4 +521,7 @@ def rating_route():
 
 if __name__ == "__main__":
     print(f"[judge] listening on 0.0.0.0:{PORT}", flush=True)
+    # Рейтинг: подгружаем диск-кэш и один раз тянем с БД в фоне (потом — только из кэша).
+    _load_rating_disk()
+    threading.Thread(target=lambda: get_rating(force=True), daemon=True).start()
     app.run(host="0.0.0.0", port=PORT, debug=False)

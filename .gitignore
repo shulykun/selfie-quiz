@@ -2,3 +2,4 @@
 .DS_Store
 __pycache__/
 server_data/*.xlsx
+server_data/rating_cache.json
