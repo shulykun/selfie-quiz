@@ -459,21 +459,48 @@
   body[data-landing="duel"] #startScreen #openBtn { background:var(--yellow); animation:cta-pop 1.8s ease-in-out infinite; }
 
   body[data-landing="result"] #startScreen {
+    background:linear-gradient(135deg, rgba(255,59,79,.96) 0 52%, rgba(255,227,79,.96) 52% 100%);
+  }
+  body[data-landing="result"] #startScreen .h1 {
+    align-self:center; max-width:390px; color:var(--paper); text-align:center; font-size:clamp(34px,9vw,52px);
+  }
+  body[data-landing="result"] #startScreen .startPromise { background:var(--paper); transform:rotate(-1deg); }
+  body[data-landing="result"] #startScreen .startPromise b { background:var(--ink); }
+  body[data-landing="result"] #startScreen #openBtn { color:var(--ink); background:var(--yellow); }
+  body[data-landing="result"] .landingHero,
+  body[data-landing="result"] .landingCollage { display:none; }
+  /* В варианте "result" — классический вид основной страницы: карточки-интро на планшете/десктопе, центр */
+  body[data-landing="result"] .cringeIntro { display:none; }
+  @media (min-width:768px) and (min-height:640px) {
+    body[data-landing="result"] .cringeIntro { display:block; }
+  }
+  body[data-landing="result"] #startScreen { justify-content:center; }
+
+  /* ---------- Основная страница (без параметра) использует вид вариантa "result" ---------- */
+  body:not([data-landing]) .landingOnly { display:block; }
+  body:not([data-landing]) .landingCollage { display:none; }
+  body:not([data-landing]) .cringeIntro { display:none; }
+  body:not([data-landing]) #startScreen::before { opacity:.5; background-size:12px 12px; }
+  body:not([data-landing]) #startScreen {
     background:linear-gradient(155deg,rgba(9,6,17,.98) 0 34%,rgba(255,63,180,.98) 34% 67%,rgba(255,227,79,.98) 67% 100%);
   }
-  body[data-landing="result"] #startScreen::before { opacity:.5; background-size:12px 12px; }
-  body[data-landing="result"] .landingEyebrow { z-index:3; color:var(--ink); background:var(--yellow); border-color:var(--ink); }
-  body[data-landing="result"] #startScreen .h1 { z-index:2; align-self:flex-start; max-width:55%; color:var(--cyan); text-align:left; font-size:clamp(34px,9vw,54px); }
-  body[data-landing="result"] #startScreen .startPromise { background:#fff; transform:rotate(1deg); }
-  body[data-landing="result"] #startScreen .startPromise b { background:var(--magenta); }
-  body[data-landing="result"] #startScreen #openBtn { color:var(--paper); background:var(--red); }
-  body[data-landing="result"] .landingHero {
+  body:not([data-landing]) .landingEyebrow { z-index:3; color:var(--ink); background:var(--yellow); border-color:var(--ink); }
+  body:not([data-landing]) #startScreen .h1 {
+    z-index:2; align-self:flex-start; max-width:55%; color:var(--cyan); text-align:left; font-size:clamp(34px,9vw,54px);
+    margin-top:auto;
+  }
+  body:not([data-landing]) #startScreen .startPromise { margin-top:10px; background:#fff; transform:rotate(1deg); }
+  body:not([data-landing]) #startScreen .startPromise b { background:var(--magenta); }
+  body:not([data-landing]) #startScreen #openBtn { width:min(100%,360px); margin-top:20px; color:var(--paper); background:var(--red); }
+  body:not([data-landing]) #startScreen #modelHint { font-size:10px; opacity:.8; }
+  body:not([data-landing]) #startScreen #rulesLink { margin-top:auto; }
+  body:not([data-landing]) .landingHero {
     display:block; position:absolute; z-index:1; top:max(68px, calc(env(safe-area-inset-top) + 56px)); right:5px;
     width:clamp(128px,38vw,170px); margin:0; transform:rotate(5deg);
     border:4px solid var(--paper); box-shadow:7px 8px 0 var(--ink);
   }
-  body[data-landing="result"] .landingHero img { display:block; width:100%; height:auto; aspect-ratio:2/3; object-fit:cover; }
-  body[data-landing="result"] .landingHero figcaption {
+  body:not([data-landing]) .landingHero img { display:block; width:100%; height:auto; aspect-ratio:2/3; object-fit:cover; }
+  body:not([data-landing]) .landingHero figcaption {
     position:absolute; right:7px; bottom:8px; padding:6px 9px; color:var(--ink); background:var(--yellow);
     border:3px solid var(--ink); box-shadow:3px 3px 0 var(--ink); font:1000 18px/1 Impact,Arial Black,sans-serif;
     transform:rotate(-4deg);
@@ -668,42 +695,51 @@
   const query = new URLSearchParams(location.search);
   const landingVariant = ['duel', 'result', 'collage'].includes(query.get('landing')) ? query.get('landing') : '';
   const creativeVariant = ['1', '2', '3'].includes(query.get('creative')) ? query.get('creative') : '1';
-  if (landingVariant) {
-    document.body.dataset.landing = landingVariant;
-    const landingCopy = {
-      duel: {
-        title: 'Кто из вас не кринжанёт?',
-        eyebrow: 'Брось вызов друзьям',
-        sub: 'Пройди первым, покажи свой рейтинг — и передай телефон следующему.',
-        cta: 'Принять вызов'
-      },
-      result: {
-        title: 'Насколько ты кринж?',
-        eyebrow: 'ИИ вынесет вердикт',
-        sub: 'Ответь на 5 неловких ситуаций и получи персональный комикс-кадр.',
-        cta: 'Узнать свой рейтинг'
-      },
-      collage: {
-        title: 'Покажи, как ты кринжуешь',
-        eyebrow: 'Живые эмоции — живой рейтинг',
-        sub: 'Ответь на 5 неловких ситуаций, покажи реакцию на камеру — и получи свой комикс-кадр.',
-        cta: 'Играть'
-      }
-    }[landingVariant];
-    document.querySelector('#startScreen .h1').textContent = landingCopy.title;
-    document.getElementById('landingEyebrow').textContent = landingCopy.eyebrow;
-    document.getElementById('landingSub').textContent = landingCopy.sub;
-    document.getElementById('openBtn').textContent = `▶ ${landingCopy.cta}`;
-    document.title = `${landingCopy.title} — Кринж-баттл`;
-    if (landingVariant === 'result') {
-      const creative = {
-        '1': { src:'assets/images/result-landing-hero.jpg', score:'КРИНЖ 8/10' },
-        '2': { src:'assets/images/result-landing-hero-2.jpg', score:'КРИНЖ 7/10' },
-        '3': { src:'assets/images/result-landing-hero-3.jpg', score:'КРИНЖ 9/10' }
-      }[creativeVariant];
-      document.querySelector('.landingHero img').src = creative.src;
-      document.querySelector('.landingHero figcaption').textContent = creative.score;
+  // «Основная» (result-вид) применяется и к базовой странице без параметра, и к ?landing=result.
+  // На ?landing=result — классический вид с карточками-интро.
+  const heroCreative = {
+    '1': { src:'assets/images/result-landing-hero.jpg', score:'КРИНЖ 8/10' },
+    '2': { src:'assets/images/result-landing-hero-2.jpg', score:'КРИНЖ 7/10' },
+    '3': { src:'assets/images/result-landing-hero-3.jpg', score:'КРИНЖ 9/10' }
+  }[creativeVariant];
+  if (landingVariant) document.body.dataset.landing = landingVariant;
+  {
+    // Базовая страница (без параметра) = result-вид. ?landing=result = классический вид (HTML-дефолты).
+    const resultCopy = {
+      title: 'Насколько ты кринж?',
+      eyebrow: 'ИИ вынесет вердикт',
+      sub: 'Ответь на 5 неловких ситуаций и получи персональный комикс-кадр.',
+      cta: 'Узнать свой рейтинг'
+    };
+    const duelCopy = {
+      title: 'Кто из вас не кринжанёт?',
+      eyebrow: 'Брось вызов друзьям',
+      sub: 'Пройди первым, покажи свой рейтинг — и передай телефон следующему.',
+      cta: 'Принять вызов'
+    };
+    const collageCopy = {
+      title: 'Покажи, как ты кринжуешь',
+      eyebrow: 'Живые эмоции — живой рейтинг',
+      sub: 'Ответь на 5 неловких ситуаций, покажи реакцию на камеру — и получи свой комикс-кадр.',
+      cta: 'Играть'
+    };
+    // Классический вид на ?landing=result не трогаем — остаются HTML-дефолты (🎤 Кринж-баттл / ▶ Начать баттл)
+    const landingCopy = landingVariant === 'duel' ? duelCopy
+      : landingVariant === 'collage' ? collageCopy
+      : landingVariant === 'result' ? null
+      : resultCopy;
+    if (landingCopy) {
+      document.querySelector('#startScreen .h1').textContent = landingCopy.title;
+      document.getElementById('landingEyebrow').textContent = landingCopy.eyebrow;
+      document.getElementById('landingSub').textContent = landingCopy.sub;
+      document.getElementById('openBtn').textContent = `\u25b6 ${landingCopy.cta}`;
+      document.title = `${landingCopy.title} — Кринж-баттл`;
+    } else {
+      document.title = 'Бой с кринжем — Селфи-квиз';
     }
+    // Хиро с комикс-кадром: показываем на базовой (result-вид), скрываем на ?landing=result (там классика)
+    document.querySelector('.landingHero img').src = heroCreative.src;
+    document.querySelector('.landingHero figcaption').textContent = heroCreative.score;
   }
   const portraitLabEnabled = query.get('lab') === '1';
   let portraitStyle = query.get('style') || 'manga';
