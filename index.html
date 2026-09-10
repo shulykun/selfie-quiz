@@ -409,6 +409,8 @@
   body[data-landing] #startScreen #rulesLink { margin-top:auto; }
   body[data-landing] .cringeIntro { display:none; }
   body[data-landing] .landingOnly { display:block; }
+  body[data-landing] .landingCollage { display:none; }
+  body[data-landing="collage"] .landingCollage { display:grid; }
   .landingEyebrow {
     position:absolute; top:max(26px, calc(env(safe-area-inset-top) + 16px)); left:50%;
     transform:translateX(-50%) rotate(-2deg); width:max-content; max-width:calc(100% - 44px);
@@ -421,6 +423,32 @@
   .landingProof { display:flex !important; gap:8px; justify-content:center; margin-top:12px; }
   .landingProof span { padding:6px 8px; border:2px solid var(--ink); background:rgba(255,248,223,.88); font-size:10px; font-weight:900; }
   .landingHero { display:none; }
+
+  /* ---------- Вариант "collage": коллаж персонажей с эмоциями ---------- */
+  .landingCollage { display:none; }
+  body[data-landing="collage"] #startScreen {
+    background:linear-gradient(160deg,rgba(25,217,255,.98) 0 30%,rgba(9,6,17,.98) 30% 62%,rgba(255,59,79,.98) 62% 100%);
+  }
+  body[data-landing="collage"] .landingEyebrow { background:var(--red); }
+  body[data-landing="collage"] #startScreen .h1 { font-size:clamp(36px,10vw,58px); }
+  body[data-landing="collage"] #startScreen .startPromise b { background:var(--cyan); }
+  body[data-landing="collage"] #startScreen #openBtn { background:var(--yellow); animation:cta-pop 1.8s ease-in-out infinite; }
+  body[data-landing="collage"] .landingCollage {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:5px;
+    width:min(100%,340px); margin:6px auto 2px;
+  }
+  .landingCollage .ccTile {
+    position:relative; margin:0; overflow:hidden; border:3px solid var(--paper);
+    box-shadow:4px 4px 0 var(--ink); background:var(--ink); aspect-ratio:2/3;
+  }
+  .landingCollage .ccTile:nth-child(odd) { transform:rotate(-2deg); }
+  .landingCollage .ccTile:nth-child(even) { transform:rotate(2deg); }
+  .landingCollage .ccTile img { display:block; width:100%; height:100%; object-fit:cover; }
+  .landingCollage .ccTile figcaption {
+    position:absolute; left:3px; bottom:3px; padding:2px 5px; color:var(--ink); background:var(--yellow);
+    border:2px solid var(--ink); font:1000 11px/1 Impact,Arial Black,sans-serif; transform:rotate(-3deg);
+  }
+  body[data-landing="collage"] .landingHero { display:none; }
 
   body[data-landing="duel"] #startScreen {
     background:linear-gradient(145deg,rgba(255,59,79,.98) 0 48%,rgba(25,217,255,.98) 48% 100%);
@@ -542,6 +570,12 @@
     </div>
   </div>
   <div class="landingSub landingOnly" id="landingSub"></div>
+  <div class="landingCollage landingOnly" id="landingCollage" aria-label="Персонажи игры с разными эмоциями">
+    <figure class="ccTile"><img src="assets/characters/purple-cringe.jpg" alt="Персонаж в кринже" width="640" height="960" loading="lazy"><figcaption>КРИНЖ</figcaption></figure>
+    <figure class="ccTile"><img src="assets/characters/copper-joy.jpg" alt="Персонаж радуется" width="640" height="960" loading="lazy"><figcaption>КАЙФ</figcaption></figure>
+    <figure class="ccTile"><img src="assets/characters/blue-neutral.jpg" alt="Персонаж в замешательстве" width="640" height="960" loading="lazy"><figcaption>ХМ…</figcaption></figure>
+    <figure class="ccTile"><img src="assets/characters/player-cringe.png" alt="Ты в кринже" width="640" height="960" loading="lazy"><figcaption>ТЫ</figcaption></figure>
+  </div>
   <div class="p startPromise">
     <div><b>1</b><span>Ответь на неловкую ситуацию</span></div>
     <div><b>2</b><span>Покажи реакцию на камеру</span></div>
@@ -632,7 +666,7 @@
   const cameraReplayBtn = document.getElementById('cameraReplayBtn');
   const styleLab = document.getElementById('styleLab');
   const query = new URLSearchParams(location.search);
-  const landingVariant = ['duel', 'result'].includes(query.get('landing')) ? query.get('landing') : '';
+  const landingVariant = ['duel', 'result', 'collage'].includes(query.get('landing')) ? query.get('landing') : '';
   const creativeVariant = ['1', '2', '3'].includes(query.get('creative')) ? query.get('creative') : '1';
   if (landingVariant) {
     document.body.dataset.landing = landingVariant;
@@ -648,6 +682,12 @@
         eyebrow: 'ИИ вынесет вердикт',
         sub: 'Ответь на 5 неловких ситуаций и получи персональный комикс-кадр.',
         cta: 'Узнать свой рейтинг'
+      },
+      collage: {
+        title: 'Покажи, как ты кринжуешь',
+        eyebrow: 'Живые эмоции — живой рейтинг',
+        sub: 'Ответь на 5 неловких ситуаций, покажи реакцию на камеру — и получи свой комикс-кадр.',
+        cta: 'Играть'
       }
     }[landingVariant];
     document.querySelector('#startScreen .h1').textContent = landingCopy.title;
